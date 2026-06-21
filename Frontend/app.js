@@ -76,14 +76,19 @@ const sportSelect = document.getElementById("sportSelect");
 const navHomeBtn = document.getElementById("navHomeBtn");
 const navScanBtn = document.getElementById("navScanBtn");
 const navInventoryBtn = document.getElementById("navInventoryBtn");
+const navPricingBtn = document.getElementById("navPricingBtn");
 const homeGoScanBtn = document.getElementById("homeGoScanBtn");
 const homeGoInventoryBtn = document.getElementById("homeGoInventoryBtn");
 const homePage = document.getElementById("homePage");
 const scanPage = document.getElementById("scanPage");
 const inventoryPage = document.getElementById("inventoryPage");
+const pricingPage = document.getElementById("pricingPage");
 const saveInventoryBtn = document.getElementById("saveInventoryBtn");
 const refreshInventoryBtn = document.getElementById("refreshInventoryBtn");
 const inventoryBody = document.getElementById("inventoryBody");
+const pricingBody = document.getElementById("pricingBody");
+const refreshPricingBtn = document.getElementById("refreshPricingBtn");
+const pricingStatus = document.getElementById("pricingStatus");
 const exportEbayCsvBtn = document.getElementById("exportEbayCsvBtn");
 const verifyEbayFieldsBtn = document.getElementById("verifyEbayFieldsBtn");
 const clearSportInventoryBtn = document.getElementById("clearSportInventoryBtn");
@@ -152,6 +157,174 @@ let activeFeedbackType = 'feedback';
 const CLIENT_LOG_LIMIT = 120;
 const clientRuntimeLogs = [];
 const LISTING_DRAFT_DEFAULT_MESSAGE = 'Select a template and enter a card ID or SKU to generate a listing draft.'
+const PRICING_STORAGE_KEY = 'cardPilotPricingById'
+let inventoryRowsCache = []
+let inventoryEditingRowId = ''
+
+function getPricingState() {
+  try {
+    const raw = localStorage.getItem(PRICING_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function setPricingState(nextState) {
+  localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(nextState || {}))
+}
+
+function showPricingStatus(message, isError = false) {
+  if (!pricingStatus) return
+  pricingStatus.style.display = message ? 'block' : 'none'
+  pricingStatus.style.color = isError ? '#a52020' : '#3f4f8e'
+  pricingStatus.textContent = message || ''
+}
+
+function renderPricingTable(items = inventoryRowsCache) {
+  if (!pricingBody) return
+
+  if (!Array.isArray(items) || !items.length) {
+    pricingBody.innerHTML = '<tr><td colspan="12">No inventory rows available for pricing yet.</td></tr>'
+    return
+  }
+
+  const pricingById = getPricingState()
+  pricingBody.innerHTML = ''
+
+  items.forEach((item) => {
+    const row = document.createElement('tr')
+    const id = String(item?.id || '')
+    const pricing = pricingById[id] || {}
+
+    row.innerHTML = `
+      <td>${id}</td>
+      <td>${item?.sku || ''}</td>
+      <td>${item?.name || ''}</td>
+      <td>${item?.set || ''}</td>
+      <td>${item?.year || ''}</td>
+      <td>${item?.quantity || 1}</td>
+      <td><input type="number" step="0.01" class="pricing-input" data-field="purchasePrice" value="${pricing.purchasePrice || ''}" /></td>
+      <td><input type="number" step="0.01" class="pricing-input" data-field="listingPrice" value="${pricing.listingPrice || ''}" /></td>
+      <td><input type="number" step="0.01" class="pricing-input" data-field="lastSale" value="${pricing.lastSale || ''}" /></td>
+      <td><input type="text" class="pricing-input" data-field="source" value="${pricing.source || ''}" /></td>
+      <td><input type="text" class="pricing-input" data-field="notes" value="${pricing.notes || ''}" /></td>
+      <td></td>
+    `
+
+    const actionsCell = row.lastElementChild
+    const saveBtn = document.createElement('button')
+    saveBtn.type = 'button'
+    saveBtn.textContent = 'Save'
+    saveBtn.addEventListener('click', () => {
+      const inputs = [...row.querySelectorAll('.pricing-input')]
+      const next = inputs.reduce((acc, input) => {
+        acc[input.dataset.field] = String(input.value || '').trim()
+        return acc
+      }, {})
+
+      pricingById[id] = next
+      setPricingState(pricingById)
+      showPricingStatus(`Saved pricing for ${item?.sku || id}.`)
+    })
+
+    actionsCell.appendChild(saveBtn)
+    pricingBody.appendChild(row)
+  })
+}
+
+function renderInventoryTable(items = inventoryRowsCache) {
+  if (!inventoryBody) return
+
+  if (!Array.isArray(items) || !items.length) {
+    inventoryBody.innerHTML = '<tr><td colspan="12">No cards in inventory for this sport yet.</td></tr>'
+    return
+  }
+
+  inventoryBody.innerHTML = ''
+  items.forEach((item) => {
+    const isEditing = inventoryEditingRowId === item.id
+    const row = document.createElement('tr')
+
+    if (isEditing) {
+      row.innerHTML = `
+        <td>${item.id || ''}</td>
+        <td>${item.sport || ''}</td>
+        <td><input class="inv-edit" data-field="sku" type="text" value="${item.sku || ''}" /></td>
+        <td><input class="inv-edit" data-field="name" type="text" value="${item.name || ''}" /></td>
+        <td><input class="inv-edit" data-field="team" type="text" value="${item.team || ''}" /></td>
+        <td><input class="inv-edit" data-field="set" type="text" value="${item.set || ''}" /></td>
+        <td><input class="inv-edit" data-field="year" type="text" value="${item.year || ''}" /></td>
+        <td><input class="inv-edit" data-field="cardNumber" type="text" value="${item.cardNumber || ''}" /></td>
+        <td><input class="inv-edit" data-field="quantity" type="number" min="1" value="${item.quantity || 1}" /></td>
+        <td><input class="inv-edit" data-field="parallel" type="text" value="${item.parallel || ''}" /></td>
+        <td>${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ''}</td>
+        <td></td>
+      `
+
+      const actionsCell = row.lastElementChild
+      const saveBtn = document.createElement('button')
+      saveBtn.type = 'button'
+      saveBtn.textContent = 'Save'
+      saveBtn.addEventListener('click', async () => {
+        const payload = [...row.querySelectorAll('.inv-edit')].reduce((acc, input) => {
+          acc[input.dataset.field] = String(input.value || '').trim()
+          return acc
+        }, {})
+        await updateInventoryRow(item.id, payload)
+      })
+
+      const cancelBtn = document.createElement('button')
+      cancelBtn.type = 'button'
+      cancelBtn.textContent = 'Cancel'
+      cancelBtn.className = 'secondary-btn'
+      cancelBtn.addEventListener('click', () => {
+        inventoryEditingRowId = ''
+        renderInventoryTable(inventoryRowsCache)
+      })
+
+      actionsCell.appendChild(saveBtn)
+      actionsCell.appendChild(cancelBtn)
+    } else {
+      row.innerHTML = `
+        <td>${item.id || ''}</td>
+        <td>${item.sport || ''}</td>
+        <td>${item.sku || ''}</td>
+        <td>${item.name || ''}</td>
+        <td>${item.team || ''}</td>
+        <td>${item.set || ''}</td>
+        <td>${item.year || ''}</td>
+        <td>${item.cardNumber || ''}</td>
+        <td>${item.quantity || 1}</td>
+        <td>${item.parallel || ''}</td>
+        <td>${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ''}</td>
+        <td></td>
+      `
+
+      const actionsCell = row.lastElementChild
+      const editButton = document.createElement('button')
+      editButton.type = 'button'
+      editButton.textContent = 'Edit'
+      editButton.addEventListener('click', () => {
+        inventoryEditingRowId = item.id
+        renderInventoryTable(inventoryRowsCache)
+      })
+
+      const deleteButton = document.createElement('button')
+      deleteButton.type = 'button'
+      deleteButton.textContent = 'Delete'
+      deleteButton.addEventListener('click', async () => {
+        await deleteInventoryRow(item.id)
+      })
+
+      actionsCell.appendChild(editButton)
+      actionsCell.appendChild(deleteButton)
+    }
+
+    inventoryBody.appendChild(row)
+  })
+}
 
 function appendClientLog(level, message, details = null) {
   const entry = {
@@ -964,14 +1137,14 @@ function restoreScanDraftSnapshot() {
 }
 
 function setActivePage(page) {
-  const safePage = (page === 'scan' || page === 'inventory' || page === 'home') ? page : 'home'
-  const pages = [homePage, scanPage, inventoryPage]
+  const safePage = (page === 'scan' || page === 'inventory' || page === 'pricing' || page === 'home') ? page : 'home'
+  const pages = [homePage, scanPage, inventoryPage, pricingPage]
   pages.forEach((el) => {
     if (!el) return
     el.classList.remove('active')
   })
 
-  const navButtons = [navHomeBtn, navScanBtn, navInventoryBtn]
+  const navButtons = [navHomeBtn, navScanBtn, navInventoryBtn, navPricingBtn]
   navButtons.forEach((el) => el?.classList.remove('active'))
 
   if (safePage === 'scan') {
@@ -980,6 +1153,10 @@ function setActivePage(page) {
   } else if (safePage === 'inventory') {
     inventoryPage?.classList.add('active')
     navInventoryBtn?.classList.add('active')
+  } else if (safePage === 'pricing') {
+    pricingPage?.classList.add('active')
+    navPricingBtn?.classList.add('active')
+    renderPricingTable(inventoryRowsCache)
   } else {
     homePage?.classList.add('active')
     navHomeBtn?.classList.add('active')
@@ -1005,7 +1182,7 @@ function getInitialActivePage() {
 
   try {
     const savedPage = String(localStorage.getItem(ACTIVE_PAGE_KEY) || '').trim().toLowerCase()
-    if (savedPage === 'scan' || savedPage === 'inventory' || savedPage === 'home') {
+    if (savedPage === 'scan' || savedPage === 'inventory' || savedPage === 'pricing' || savedPage === 'home') {
       return savedPage
     }
   } catch {
@@ -1025,45 +1202,37 @@ async function loadInventory() {
     const res = await fetch(`${backendUrl}/inventory?sport=${sport}`)
     const data = await res.json()
     const items = Array.isArray(data?.items) ? data.items : []
-
-    if (!items.length) {
-      inventoryBody.innerHTML = '<tr><td colspan="12">No cards in inventory for this sport yet.</td></tr>'
-      return
-    }
-
-    inventoryBody.innerHTML = ''
-    items.forEach((item) => {
-      const row = document.createElement('tr')
-
-      const deleteButton = document.createElement('button')
-      deleteButton.type = 'button'
-      deleteButton.textContent = 'Delete'
-      deleteButton.addEventListener('click', async () => {
-        await deleteInventoryRow(item.id)
-      })
-
-      const actionsCell = document.createElement('td')
-      actionsCell.appendChild(deleteButton)
-
-      row.innerHTML = `
-        <td>${item.id || ''}</td>
-        <td>${item.sport || ''}</td>
-        <td>${item.sku || ''}</td>
-        <td>${item.name || ''}</td>
-        <td>${item.team || ''}</td>
-        <td>${item.set || ''}</td>
-        <td>${item.year || ''}</td>
-        <td>${item.cardNumber || ''}</td>
-        <td>${item.quantity || 1}</td>
-        <td>${item.parallel || ''}</td>
-        <td>${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ''}</td>
-      `
-      row.appendChild(actionsCell)
-      inventoryBody.appendChild(row)
-    })
+    inventoryRowsCache = items
+    inventoryEditingRowId = ''
+    renderInventoryTable(items)
+    renderPricingTable(items)
   } catch (err) {
+    inventoryRowsCache = []
+    renderPricingTable([])
     inventoryBody.innerHTML = '<tr><td colspan="11">Failed to load inventory.</td></tr>'
     console.error('Inventory load failed:', err)
+  }
+}
+
+async function updateInventoryRow(id, payload) {
+  try {
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/inventory/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data?.error || 'Failed to update inventory row')
+    }
+
+    inventoryEditingRowId = ''
+    showInventoryStatus('Inventory row updated.')
+    await loadInventory()
+  } catch (err) {
+    showInventoryStatus(`Inventory update failed: ${err.message || 'Unknown error'}`, true)
   }
 }
 
@@ -1373,6 +1542,10 @@ function initAppNavigation() {
     await loadListingTemplates()
     await loadInventory()
   })
+  navPricingBtn?.addEventListener('click', async () => {
+    setActivePage('pricing')
+    await loadInventory()
+  })
 
   homeGoScanBtn?.addEventListener('click', () => setActivePage('scan'))
   homeGoInventoryBtn?.addEventListener('click', async () => {
@@ -1382,6 +1555,10 @@ function initAppNavigation() {
   })
 
   refreshInventoryBtn?.addEventListener('click', loadInventory)
+  refreshPricingBtn?.addEventListener('click', async () => {
+    await loadInventory()
+    setActivePage('pricing')
+  })
   saveInventoryBtn?.addEventListener('click', saveCurrentRowsToInventory)
   verifyEbayFieldsBtn?.addEventListener('click', verifyEbayFieldCoverage)
   exportEbayCsvBtn?.addEventListener('click', exportInventoryEbayCsv)

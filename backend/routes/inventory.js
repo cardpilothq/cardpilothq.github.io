@@ -500,6 +500,102 @@ router.delete('/:id', async (req, res) => {
   }
 })
 
+router.put('/:id', async (req, res) => {
+  try {
+    await initializeDatabase()
+
+    const id = String(req.params?.id || '').trim()
+    if (!id) {
+      res.status(400).json({ error: 'Missing inventory row id.' })
+      return
+    }
+
+    const existing = await dbGet('SELECT * FROM inventory WHERE id = ?', [id])
+    if (!existing) {
+      res.status(404).json({ error: 'Inventory row not found.' })
+      return
+    }
+
+    const body = req.body || {}
+    const updated = {
+      sport: String(body.sport ?? existing.sport ?? '').trim() || existing.sport,
+      pairType: String(body.pairType ?? existing.pairType ?? '').trim(),
+      sku: String(body.sku ?? existing.sku ?? '').trim(),
+      name: String(body.name ?? existing.name ?? '').trim(),
+      team: String(body.team ?? existing.team ?? '').trim(),
+      position: String(body.position ?? existing.position ?? '').trim(),
+      setName: String(body.set ?? existing.setName ?? '').trim(),
+      year: String(body.year ?? existing.year ?? '').trim(),
+      cardNumber: String(body.cardNumber ?? existing.cardNumber ?? '').trim(),
+      quantity: safeInt(body.quantity ?? existing.quantity ?? 1, 1),
+      parallel: String(body.parallel ?? existing.parallel ?? '').trim(),
+      rookie: String(body.rookie ?? existing.rookie ?? '').trim(),
+      autograph: String(body.autograph ?? existing.autograph ?? '').trim(),
+      title: String(body.title ?? existing.title ?? '').trim(),
+      description: String(body.description ?? existing.description ?? '').trim(),
+      pickFrom: String(body.pickFrom ?? existing.pickFrom ?? '').trim(),
+      filename: String(body.filename ?? existing.filename ?? '').trim(),
+      pictureUrl: String(body.pictureUrl ?? existing.pictureUrl ?? '').trim()
+    }
+
+    const nextFingerprint = [
+      normalize(updated.sport),
+      normalize(updated.name),
+      normalize(updated.team),
+      normalize(updated.setName),
+      normalize(updated.year),
+      normalize(updated.cardNumber),
+      normalize(updated.parallel)
+    ].join('|')
+
+    const conflict = await dbGet('SELECT id FROM inventory WHERE fingerprint = ? AND id <> ?', [nextFingerprint, id])
+    if (conflict) {
+      res.status(409).json({ error: 'Updating this row would duplicate another inventory fingerprint.' })
+      return
+    }
+
+    const updatedAt = new Date().toISOString()
+
+    await dbRun(
+      `UPDATE inventory
+       SET sport = ?, sportNormalized = ?, fingerprint = ?, pairType = ?, sku = ?, name = ?, team = ?, position = ?,
+           setName = ?, year = ?, cardNumber = ?, quantity = ?, parallel = ?, rookie = ?, autograph = ?, title = ?,
+           description = ?, pickFrom = ?, filename = ?, pictureUrl = ?, updatedAt = ?
+       WHERE id = ?`,
+      [
+        updated.sport,
+        normalize(updated.sport),
+        nextFingerprint,
+        updated.pairType,
+        updated.sku,
+        updated.name,
+        updated.team,
+        updated.position,
+        updated.setName,
+        updated.year,
+        updated.cardNumber,
+        updated.quantity,
+        updated.parallel,
+        updated.rookie,
+        updated.autograph,
+        updated.title,
+        updated.description,
+        updated.pickFrom,
+        updated.filename,
+        updated.pictureUrl,
+        updatedAt,
+        id
+      ]
+    )
+
+    const row = await dbGet('SELECT * FROM inventory WHERE id = ?', [id])
+    res.json({ ok: true, item: rowToInventoryItem(row) })
+  } catch (err) {
+    console.error('Inventory update failed:', err)
+    res.status(500).json({ error: 'Failed to update inventory row.' })
+  }
+})
+
 router.delete('/', async (req, res) => {
   try {
     await initializeDatabase()

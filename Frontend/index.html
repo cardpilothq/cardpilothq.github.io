@@ -49,6 +49,7 @@
     <button id="navHomeBtn" type="button" class="nav-btn active">Home</button>
     <button id="navScanBtn" type="button" class="nav-btn">Scan Cards</button>
     <button id="navInventoryBtn" type="button" class="nav-btn">Inventory</button>
+    <button id="navPricingBtn" type="button" class="nav-btn">Pricing</button>
   </div>
 
   <section id="homePage" class="app-page active">
@@ -337,8 +338,39 @@
     </div>
   </section>
 
+  <section id="pricingPage" class="app-page">
+    <div class="inventory-header">
+      <h2>Pricing</h2>
+      <div class="inventory-actions">
+        <button id="refreshPricingBtn" type="button">Refresh Pricing Rows</button>
+      </div>
+    </div>
+    <div id="pricingStatus" class="inventory-status" style="display:none;"></div>
+    <div class="table-wrapper">
+      <table id="pricingTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>SKU</th>
+            <th>Name</th>
+            <th>Set</th>
+            <th>Year</th>
+            <th>Qty</th>
+            <th>Purchase Price</th>
+            <th>Listing Price</th>
+            <th>Last Sale</th>
+            <th>Source</th>
+            <th>Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="pricingBody"></tbody>
+      </table>
+    </div>
+  </section>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="app.js?v=20260621k"></script>
+  <script src="app.js?v=20260621m"></script>
   <script src="column-manager.js?v=20260619d"></script>
   <script src="server-control.js?v=20260619i"></script>
 </body>
