@@ -29,6 +29,67 @@ body {
 .app-toolbar {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.help-menu {
+  position: relative;
+}
+
+.help-menu-toggle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.16);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 0;
+}
+
+.help-menu-toggle:hover {
+  transform: none;
+  box-shadow: none;
+  background: rgba(255,255,255,0.28);
+}
+
+.help-menu-dropdown {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  min-width: 170px;
+  background: #fff;
+  border: 1px solid #d9def1;
+  border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(22, 34, 80, 0.18);
+  padding: 6px;
+  display: none;
+  z-index: 1200;
+}
+
+.help-menu-dropdown.active {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.help-menu-dropdown button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #2d3b73;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.help-menu-dropdown button:hover {
+  transform: none;
+  box-shadow: none;
+  background: #edf2ff;
 }
 
 .sport-picker {
@@ -875,7 +936,7 @@ body {
 }
 
 .prefill-modal-content {
-  max-width: 640px;
+  max-width: 680px;
 }
 
 @keyframes slideIn {
@@ -920,7 +981,7 @@ body {
 
 .modal-body {
   padding: 20px;
-  max-height: 400px;
+  max-height: 330px;
   overflow-y: auto;
 }
 
@@ -941,14 +1002,14 @@ body {
 
 .prefill-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .prefill-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   font-size: 13px;
   color: #33406f;
   font-weight: 600;
@@ -964,16 +1025,6 @@ body {
   border: 1px solid #d5dbef;
   border-radius: 8px;
   font-size: 14px;
-}
-
-.prefill-set-select {
-  width: 100%;
-  min-height: 144px;
-  padding: 10px 12px;
-  border: 1px solid #d5dbef;
-  border-radius: 8px;
-  font-size: 14px;
-  background: #fff;
 }
 
 .prefill-chip-list {
@@ -1037,19 +1088,19 @@ body {
 }
 
 .prefill-set-checklist {
-  max-height: 180px;
+  max-height: 112px;
   overflow-y: auto;
-  padding: 8px 10px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
 
 .prefill-set-option {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr);
   align-items: start;
-  gap: 8px;
+  gap: 7px;
   font-size: 12px;
   color: #2f3e73;
 }
@@ -1068,7 +1119,7 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  padding: 8px 10px 10px;
+  padding: 7px 8px 8px;
   border-top: 1px solid #e2e6f7;
 }
 
@@ -1093,12 +1144,34 @@ body {
 
 .prefill-year-checklist {
   border-top: 1px solid #e2e6f7;
-  max-height: 200px;
+  max-height: 112px;
   overflow-y: auto;
-  padding: 8px 10px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+}
+
+.feedback-modal-content {
+  max-width: 640px;
+}
+
+.feedback-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.feedback-description-field {
+  grid-column: 1 / -1;
+}
+
+.feedback-description-field textarea {
+  width: 100%;
+  border: 1px solid #d5dbef;
+  border-radius: 8px;
+  font-size: 14px;
+  padding: 10px 12px;
+  resize: vertical;
+  min-height: 132px;
 }
 
 .prefill-year-option {
@@ -1222,6 +1295,10 @@ body {
 
 @media (max-width: 720px) {
   .prefill-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feedback-grid {
     grid-template-columns: 1fr;
   }
 

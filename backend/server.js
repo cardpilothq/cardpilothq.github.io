@@ -11,6 +11,7 @@ import detectFrontBackRoute from './routes/detectFrontBack.js'
 import renameRoute from './routes/rename.js'
 import inventoryRoute from './routes/inventory.js'
 import catalogRoute from './routes/catalog.js'
+import feedbackRoute from './routes/feedback.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -92,6 +93,7 @@ app.use('/detect-front-back', rateLimit, detectFrontBackRoute)
 app.use('/rename', renameRoute)
 app.use('/inventory', inventoryRoute)
 app.use('/catalog', catalogRoute)
+app.use('/feedback', feedbackRoute)
 if (hasFrontendBundle) {
   app.use(express.static(frontendDir))
 }

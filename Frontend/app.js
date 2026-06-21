@@ -108,8 +108,21 @@ const prefillYearSummary = document.getElementById("prefillYearSummary");
 const prefillYearChecklist = document.getElementById("prefillYearChecklist");
 const prefillTeamOptions = document.getElementById("prefillTeamOptions");
 const prefillTeamChips = document.getElementById("prefillTeamChips");
-const prefillSetSelect = document.getElementById("prefillSetSelect");
+const prefillSetChecklist = document.getElementById("prefillSetChecklist");
 const clearPrefillSetsBtn = document.getElementById("clearPrefillSetsBtn");
+const helpMenuToggle = document.getElementById("helpMenuToggle");
+const helpMenuDropdown = document.getElementById("helpMenuDropdown");
+const openFeedbackBtn = document.getElementById("openFeedbackBtn");
+const openDefectBtn = document.getElementById("openDefectBtn");
+const feedbackModal = document.getElementById("feedbackModal");
+const closeFeedbackModal = document.getElementById("closeFeedbackModal");
+const cancelFeedbackBtn = document.getElementById("cancelFeedbackBtn");
+const submitFeedbackBtn = document.getElementById("submitFeedbackBtn");
+const feedbackModalTitle = document.getElementById("feedbackModalTitle");
+const feedbackTitleInput = document.getElementById("feedbackTitleInput");
+const feedbackEmailInput = document.getElementById("feedbackEmailInput");
+const feedbackMessageInput = document.getElementById("feedbackMessageInput");
+const feedbackStatus = document.getElementById("feedbackStatus");
 
 let viewerScale = 1;
 let viewerOffsetX = 0;
@@ -134,6 +147,36 @@ let scanDraftPersistFailed = false;
 let scanDraftDbPromise = null;
 let scanDraftRestoreInProgress = false;
 let forceSkuResetOnNextImport = false;
+let activeFeedbackType = 'feedback';
+const CLIENT_LOG_LIMIT = 120;
+const clientRuntimeLogs = [];
+
+function appendClientLog(level, message, details = null) {
+  const entry = {
+    time: new Date().toISOString(),
+    level,
+    message: String(message || ''),
+    details
+  }
+  clientRuntimeLogs.push(entry)
+  if (clientRuntimeLogs.length > CLIENT_LOG_LIMIT) {
+    clientRuntimeLogs.shift()
+  }
+}
+
+window.addEventListener('error', (event) => {
+  appendClientLog('error', event?.message || 'Unhandled window error', {
+    source: event?.filename || '',
+    line: event?.lineno || 0,
+    column: event?.colno || 0
+  })
+})
+
+window.addEventListener('unhandledrejection', (event) => {
+  appendClientLog('error', 'Unhandled promise rejection', {
+    reason: String(event?.reason || '')
+  })
+})
 
 function normalizePrefillValue(value) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
@@ -222,40 +265,42 @@ function getMergedSetOptions() {
 }
 
 function renderSetOptions() {
-  if (!prefillSetSelect) return
+  if (!prefillSetChecklist) return
 
   const options = getMergedSetOptions()
   const selectedKeys = new Set(selectedPrefillSets.map((item) => normalizePrefillValue(item)))
 
-  prefillSetSelect.innerHTML = ''
+  prefillSetChecklist.innerHTML = ''
 
-  const placeholder = document.createElement('option')
-  placeholder.value = ''
-  placeholder.textContent = options.length ? 'Choose a set from the database' : 'No sets found'
-  placeholder.disabled = true
-  placeholder.selected = selectedKeys.size === 0
-  prefillSetSelect.appendChild(placeholder)
+  if (!options.length) {
+    const emptyState = document.createElement('div')
+    emptyState.className = 'prefill-set-empty'
+    emptyState.textContent = 'No sets found'
+    prefillSetChecklist.appendChild(emptyState)
+    return
+  }
 
   options.forEach((option) => {
-    const opt = document.createElement('option')
-    opt.value = option.value
-    opt.textContent = option.label
-    if (selectedKeys.has(normalizePrefillValue(option.value))) {
-      opt.selected = true
-    }
-    prefillSetSelect.appendChild(opt)
-  })
+    const wrapper = document.createElement('label')
+    wrapper.className = 'prefill-set-option'
 
-  selectedPrefillSets.forEach((selectedValue) => {
-    const normalized = normalizePrefillValue(selectedValue)
-    if (!normalized) return
-    if (options.some((option) => normalizePrefillValue(option.value) === normalized)) return
+    const checkbox = document.createElement('input')
+    checkbox.type = 'checkbox'
+    checkbox.checked = selectedKeys.has(normalizePrefillValue(option.value))
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) {
+        addPrefillEntries('set', option.value)
+      } else {
+        removePrefillEntry('set', option.value)
+      }
+    })
 
-    const custom = document.createElement('option')
-    custom.value = selectedValue
-    custom.textContent = selectedValue
-    custom.selected = true
-    prefillSetSelect.appendChild(custom)
+    const text = document.createElement('span')
+    text.textContent = option.label
+
+    wrapper.appendChild(checkbox)
+    wrapper.appendChild(text)
+    prefillSetChecklist.appendChild(wrapper)
   })
 }
 
@@ -318,12 +363,7 @@ function clearPrefillHistory(kind) {
 }
 
 function getYearOptions() {
-  const currentYear = new Date().getFullYear()
-  const years = []
-  for (let year = currentYear; year >= 2000; year -= 1) {
-    years.push(String(year))
-  }
-  return years
+  return [...ALLOWED_CARD_YEARS]
 }
 
 function renderYearChecklist() {
@@ -474,7 +514,7 @@ async function openImportPrefillDialog(files) {
   const catalogMatch = catalogSetOptions.find((setItem) => normalizePrefillValue(formatCatalogSetLabel(setItem)) === catalogSuggestionKey)
   selectedPrefillSets = [catalogMatch ? formatCatalogSetLabel(catalogMatch) : catalogSuggestion].filter(Boolean)
   selectedPrefillTeams = [...new Set(preScan.teams)].slice(0, 3)
-  selectedPrefillYears = [...new Set(preScan.years)].slice(0, 2)
+  selectedPrefillYears = ['2025', '2026']
 
   renderPrefillHistoryOptions()
   updateQueuedFileFeedback(files)
@@ -508,6 +548,91 @@ function collectImportPrefill() {
     teams: [...selectedPrefillTeams],
     sets: [...selectedPrefillSets],
     year: derivePrefillYearValue()
+  }
+}
+
+function setFeedbackStatus(message, isError = false) {
+  if (!feedbackStatus) return
+  feedbackStatus.style.display = message ? 'block' : 'none'
+  feedbackStatus.style.color = isError ? '#b00' : '#256f2f'
+  feedbackStatus.textContent = message || ''
+}
+
+function closeHelpMenu() {
+  if (!helpMenuDropdown || !helpMenuToggle) return
+  helpMenuDropdown.classList.remove('active')
+  helpMenuToggle.setAttribute('aria-expanded', 'false')
+}
+
+function openFeedbackModal(type) {
+  if (!feedbackModal) return
+  activeFeedbackType = type === 'defect' ? 'defect' : 'feedback'
+  if (feedbackModalTitle) {
+    feedbackModalTitle.textContent = activeFeedbackType === 'defect' ? 'Submit Defect Report' : 'Submit Feedback'
+  }
+  if (feedbackTitleInput) feedbackTitleInput.value = ''
+  if (feedbackMessageInput) feedbackMessageInput.value = ''
+  setFeedbackStatus('')
+  feedbackModal.classList.add('active')
+  closeHelpMenu()
+}
+
+function closeFeedbackDialog() {
+  if (!feedbackModal) return
+  feedbackModal.classList.remove('active')
+  setFeedbackStatus('')
+}
+
+async function submitFeedbackReport() {
+  if (!submitFeedbackBtn || !feedbackTitleInput || !feedbackMessageInput) return
+  const title = String(feedbackTitleInput.value || '').trim()
+  const details = String(feedbackMessageInput.value || '').trim()
+  const contactEmail = String(feedbackEmailInput?.value || '').trim()
+
+  if (!title || !details) {
+    setFeedbackStatus('Please enter both a title and details before submitting.', true)
+    return
+  }
+
+  submitFeedbackBtn.disabled = true
+  setFeedbackStatus('Submitting report...')
+  appendClientLog('info', `Submitting ${activeFeedbackType} report`, { title })
+
+  try {
+    const backendUrl = await getBackendUrl()
+    const payload = {
+      type: activeFeedbackType,
+      title,
+      details,
+      contactEmail,
+      app: {
+        build: FRONTEND_BUILD,
+        sport: activeSport(),
+        url: typeof window !== 'undefined' ? window.location.href : ''
+      },
+      client: {
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+        logs: clientRuntimeLogs.slice(-60)
+      }
+    }
+
+    const response = await fetch(`${backendUrl}/feedback/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    const result = await response.json()
+
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.error || 'Feedback submission failed')
+    }
+
+    setFeedbackStatus(result.message || 'Report submitted successfully.')
+    setTimeout(() => closeFeedbackDialog(), 900)
+  } catch (err) {
+    setFeedbackStatus(`Submission failed: ${err.message || 'Unknown error'}`, true)
+  } finally {
+    submitFeedbackBtn.disabled = false
   }
 }
 
@@ -1254,13 +1379,27 @@ function initAppNavigation() {
   clearSportInventoryBtn?.addEventListener('click', () => clearInventory('sport'))
   clearAllInventoryBtn?.addEventListener('click', () => clearInventory('all'))
   buildListingDraftBtn?.addEventListener('click', buildListingDraftFromInventory)
-  if (prefillSetSelect) {
-    prefillSetSelect.addEventListener('change', () => {
-      selectedPrefillSets = [...prefillSetSelect.selectedOptions]
-        .map((option) => String(option.value || '').trim())
-        .filter(Boolean)
-    })
-  }
+  helpMenuToggle?.addEventListener('click', (event) => {
+    event.stopPropagation()
+    const nextState = !helpMenuDropdown?.classList.contains('active')
+    if (helpMenuDropdown) {
+      helpMenuDropdown.classList.toggle('active', nextState)
+    }
+    helpMenuToggle.setAttribute('aria-expanded', nextState ? 'true' : 'false')
+  })
+  openFeedbackBtn?.addEventListener('click', () => openFeedbackModal('feedback'))
+  openDefectBtn?.addEventListener('click', () => openFeedbackModal('defect'))
+  closeFeedbackModal?.addEventListener('click', closeFeedbackDialog)
+  cancelFeedbackBtn?.addEventListener('click', closeFeedbackDialog)
+  submitFeedbackBtn?.addEventListener('click', submitFeedbackReport)
+
+  document.addEventListener('click', (event) => {
+    if (!helpMenuDropdown?.classList.contains('active')) return
+    if (event.target === helpMenuToggle || helpMenuToggle?.contains(event.target)) return
+    if (helpMenuDropdown?.contains(event.target)) return
+    closeHelpMenu()
+  })
+
   setActivePage(getInitialActivePage())
   initializeAppBadge()
 }
@@ -1726,6 +1865,11 @@ importPrefillModal?.addEventListener('click', (e) => {
   if (e.target === importPrefillModal) {
     updateQueuedFileFeedback([])
     closeImportPrefillDialog()
+  }
+})
+feedbackModal?.addEventListener('click', (e) => {
+  if (e.target === feedbackModal) {
+    closeFeedbackDialog()
   }
 })
 closeImportPrefillModal?.addEventListener('click', () => {

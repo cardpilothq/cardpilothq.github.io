@@ -24,6 +24,14 @@
             <option value="Soccer">Soccer</option>
           </select>
         </label>
+
+        <div class="help-menu" id="helpMenu">
+          <button id="helpMenuToggle" type="button" class="help-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Help and feedback">?</button>
+          <div id="helpMenuDropdown" class="help-menu-dropdown" role="menu">
+            <button id="openFeedbackBtn" type="button" role="menuitem">Submit Feedback</button>
+            <button id="openDefectBtn" type="button" role="menuitem">Submit Defect</button>
+          </div>
+        </div>
       </div>
       
       <!-- Server Status -->
@@ -181,8 +189,8 @@
             <div class="prefill-field">
               <span>Set</span>
               <div class="prefill-set-panel">
-                <div class="prefill-set-header">Select set options</div>
-                <select id="prefillSetSelect" class="prefill-set-select" multiple size="6"></select>
+                <div class="prefill-set-header">Choose one or more set options</div>
+                <div id="prefillSetChecklist" class="prefill-set-checklist"></div>
                 <div class="prefill-set-add-row">
                   <input id="prefillSetInput" type="text" placeholder="Add new set and press Enter" />
                   <button id="clearPrefillSetsBtn" type="button" class="prefill-clear-btn">Clear History</button>
@@ -201,6 +209,37 @@
         <div class="modal-footer">
           <button id="cancelImportPrefillBtn" type="button" class="secondary-btn">Cancel</button>
           <button id="confirmImportPrefillBtn" type="button" class="primary-btn">Import</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="feedbackModal" class="modal">
+      <div class="modal-content feedback-modal-content">
+        <div class="modal-header">
+          <h2 id="feedbackModalTitle">Submit Feedback</h2>
+          <button class="modal-close" id="closeFeedbackModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="prefill-hint">Logs and diagnostics are attached automatically to speed up triage.</p>
+          <div class="prefill-grid feedback-grid">
+            <label class="prefill-field">
+              <span>Title</span>
+              <input id="feedbackTitleInput" type="text" placeholder="Short summary" />
+            </label>
+            <label class="prefill-field">
+              <span>Contact Email (optional)</span>
+              <input id="feedbackEmailInput" type="email" placeholder="you@example.com" />
+            </label>
+            <label class="prefill-field feedback-description-field">
+              <span>Details</span>
+              <textarea id="feedbackMessageInput" rows="6" placeholder="What happened, what you expected, and any steps to reproduce."></textarea>
+            </label>
+          </div>
+          <div id="feedbackStatus" class="inventory-status" style="display:none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelFeedbackBtn" type="button" class="secondary-btn">Cancel</button>
+          <button id="submitFeedbackBtn" type="button" class="primary-btn">Submit</button>
         </div>
       </div>
     </div>
