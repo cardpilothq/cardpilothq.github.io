@@ -94,6 +94,7 @@ const listingTemplateSelect = document.getElementById("listingTemplateSelect");
 const listingCardIdInput = document.getElementById("listingCardIdInput");
 const listingChaseCardIdInput = document.getElementById("listingChaseCardIdInput");
 const buildListingDraftBtn = document.getElementById("buildListingDraftBtn");
+const cancelListingDraftBtn = document.getElementById("cancelListingDraftBtn");
 const listingDraftOutput = document.getElementById("listingDraftOutput");
 const quickAddFilesBtn = document.getElementById("quickAddFilesBtn");
 const importPrefillModal = document.getElementById("importPrefillModal");
@@ -150,6 +151,7 @@ let forceSkuResetOnNextImport = false;
 let activeFeedbackType = 'feedback';
 const CLIENT_LOG_LIMIT = 120;
 const clientRuntimeLogs = [];
+const LISTING_DRAFT_DEFAULT_MESSAGE = 'Select a template and enter a card ID or SKU to generate a listing draft.'
 
 function appendClientLog(level, message, details = null) {
   const entry = {
@@ -1221,6 +1223,13 @@ async function buildListingDraftFromInventory() {
   }
 }
 
+function cancelListingDraftBuild() {
+  if (listingCardIdInput) listingCardIdInput.value = ''
+  if (listingChaseCardIdInput) listingChaseCardIdInput.value = ''
+  if (listingDraftOutput) listingDraftOutput.textContent = LISTING_DRAFT_DEFAULT_MESSAGE
+  showInventoryStatus('Draft changes discarded. Ready to build a new draft.')
+}
+
 async function verifyEbayFieldCoverage() {
   try {
     const sport = encodeURIComponent(activeSport())
@@ -1379,6 +1388,7 @@ function initAppNavigation() {
   clearSportInventoryBtn?.addEventListener('click', () => clearInventory('sport'))
   clearAllInventoryBtn?.addEventListener('click', () => clearInventory('all'))
   buildListingDraftBtn?.addEventListener('click', buildListingDraftFromInventory)
+  cancelListingDraftBtn?.addEventListener('click', cancelListingDraftBuild)
   helpMenuToggle?.addEventListener('click', (event) => {
     event.stopPropagation()
     const nextState = !helpMenuDropdown?.classList.contains('active')
