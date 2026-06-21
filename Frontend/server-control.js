@@ -7,6 +7,15 @@ let backendBaseUrl = null
 let startupInProgress = false
 const HEALTH_TIMEOUT_MS = 700
 const MANAGER_TIMEOUT_MS = 1500
+let configuredBackendUrl = null
+
+function isHostedEnvironment() {
+  if (typeof window === 'undefined') return false
+  const protocol = String(window.location?.protocol || '').toLowerCase()
+  const host = String(window.location?.hostname || '').toLowerCase()
+  if (!/^https?:$/.test(protocol)) return false
+  return host !== 'localhost' && host !== '127.0.0.1'
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -23,7 +32,34 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = HEALTH_TIMEOUT_MS
   }
 }
 
+async function getConfiguredBackendUrl() {
+  if (configuredBackendUrl !== null) return configuredBackendUrl
+  try {
+    const response = await fetchWithTimeout('config.json', { method: 'GET' }, HEALTH_TIMEOUT_MS)
+    if (!response.ok) {
+      configuredBackendUrl = ''
+      return configuredBackendUrl
+    }
+    const data = await response.json()
+    configuredBackendUrl = String(data?.backendUrl || '').trim()
+    return configuredBackendUrl
+  } catch {
+    configuredBackendUrl = ''
+    return configuredBackendUrl
+  }
+}
+
 async function detectRunningBackendUrl() {
+  const configuredUrl = await getConfiguredBackendUrl()
+  if (configuredUrl) {
+    try {
+      const response = await fetchWithTimeout(`${configuredUrl}/health`, { method: 'GET' }, HEALTH_TIMEOUT_MS)
+      if (response.ok) return configuredUrl
+    } catch {
+      // Fall through to additional checks.
+    }
+  }
+
   if (typeof window !== 'undefined' && /^https?:/i.test(String(window.location?.origin || ''))) {
     try {
       const response = await fetchWithTimeout(`${window.location.origin}/health`, { method: 'GET' }, HEALTH_TIMEOUT_MS)
@@ -31,6 +67,10 @@ async function detectRunningBackendUrl() {
     } catch {
       // Fall back to localhost probes for local desktop use.
     }
+  }
+
+  if (isHostedEnvironment()) {
+    return null
   }
 
   const checks = SERVER_CONTROL_PORTS.map(async (port) => {
@@ -108,8 +148,7 @@ async function updateServerStatus() {
   const statusDot = document.getElementById('statusDot')
   const statusText = document.getElementById('statusText')
   const serverToggleBtn = document.getElementById('serverToggleBtn')
-  const hostedOrigin = typeof window !== 'undefined' ? String(window.location?.origin || '') : ''
-  const isHostedApp = /^https?:/i.test(hostedOrigin) && backendBaseUrl === hostedOrigin
+  const isHostedApp = isHostedEnvironment()
   
   isServerRunning = isRunning
   
@@ -117,7 +156,7 @@ async function updateServerStatus() {
     statusDot.classList.add('running')
     statusText.textContent = backendBaseUrl ? `Server Running (${backendBaseUrl})` : 'Server Running'
     if (isHostedApp) {
-      serverToggleBtn.textContent = 'Hosted Beta'
+      serverToggleBtn.textContent = 'Hosted Mode'
       serverToggleBtn.disabled = true
       serverToggleBtn.classList.add('running')
     } else {
@@ -127,9 +166,9 @@ async function updateServerStatus() {
     }
   } else {
     statusDot.classList.remove('running')
-    statusText.textContent = 'Server Offline'
-    serverToggleBtn.textContent = 'Start Server'
-    serverToggleBtn.disabled = false
+    statusText.textContent = isHostedApp ? 'Backend Unreachable' : 'Server Offline'
+    serverToggleBtn.textContent = isHostedApp ? 'Hosted Mode' : 'Start Server'
+    serverToggleBtn.disabled = isHostedApp
     serverToggleBtn.classList.remove('running')
   }
 }
@@ -137,6 +176,12 @@ async function updateServerStatus() {
 async function autoStartBackendOnLoad() {
   if (startupInProgress) return
   startupInProgress = true
+
+  if (isHostedEnvironment()) {
+    await updateServerStatus()
+    startupInProgress = false
+    return
+  }
 
   const statusText = document.getElementById('statusText')
   const alreadyRunning = await checkServerStatus()
