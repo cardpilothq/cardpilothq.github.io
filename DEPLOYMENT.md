@@ -21,6 +21,36 @@ GitHub Pages repo (for example `cardpilothq-poc`).
 
 ---
 
+## GitHub Actions Environment Pipeline
+
+This repository now includes a 3-environment deployment model with immutable QA-to-PROD promotion:
+
+- `deploy-environments.yml`: deploys `DEV-POC` and `QA`, and publishes a deployment artifact (`cardpilot-bundle-<sha>`).
+- `promote-qa-to-prod.yml`: deploys `PROD` only from a successful QA run artifact.
+
+### Required GitHub Setup
+
+1. Go to **Settings → Environments** and create:
+   - `DEV-POC`
+   - `QA`
+   - `PROD`
+2. On `PROD`, add **Required reviewers** for approval gating.
+3. Add repository secrets (if using webhook-based deploy triggers):
+   - `DEV_DEPLOY_WEBHOOK_URL`
+   - `QA_DEPLOY_WEBHOOK_URL`
+   - `PROD_DEPLOY_WEBHOOK_URL`
+
+### How to Deploy
+
+1. Push to `poc`/`dev` branch to deploy `DEV-POC`.
+2. Push to `qa` branch to deploy `QA` and generate the artifact.
+3. Open **Actions → Promote QA Artifact to PROD**, run workflow, and enter the successful QA `run_id`.
+4. Approve the `PROD` environment prompt when GitHub requests review.
+
+This enforces QA validation before PROD and ensures PROD deploys the exact artifact created by QA.
+
+---
+
 ## Prerequisites
 - GitHub account: [jayzeespc](https://github.com/jayzeespc) ✓
 - Render.com account (free signup): https://render.com
