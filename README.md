@@ -2,6 +2,8 @@
 
 A full-stack web app for scanning, OCR extraction, and cataloging sports trading cards. Built with Node.js + Azure Document Intelligence + vanilla JavaScript.
 
+POC mode is also supported for low-cost CardSight free/trial evaluation without replacing your main QA/PROD flows.
+
 ## Features
 
 ✨ **AI-Powered OCR**
@@ -61,6 +63,20 @@ npm run start:qa
 
 3. Restart backend: `npm run start:qa`
 
+### Configure POC (CardSight Free/Trial)
+
+1. Copy `backend/.env.poc.example` to `backend/.env.poc`
+2. Set your trial key:
+  - `CARDSIGHT_API_KEY=...`
+3. Start POC backend:
+
+```bash
+cd backend
+npm run start:poc
+```
+
+POC settings include hard usage caps and cheap-mode single-pass analyze by default.
+
 ## Deployment
 
 **GitHub Pages + Render (free):**
@@ -73,6 +89,30 @@ Quick summary:
 3. Deploy backend to Render free tier
 4. Update `Frontend/config.json` with backend URL
 5. Done! ✅
+
+### Side-By-Side POC Deployment (Recommended)
+
+Keep your main site and POC site separate without changing your QA/PROD setup:
+
+1. Prepare POC frontend copy:
+
+```powershell
+cd d:\Website\card-automation
+setup-poc-frontend.bat
+```
+
+2. Publish `Frontend-POC/` as your POC GitHub Pages site.
+3. Point the POC frontend to your POC backend via `Frontend-POC/config.json`.
+4. Run POC backend with:
+
+```powershell
+cd backend
+npm run start:poc
+```
+
+This gives you a clean split like:
+- Main: CardPilot HQ (QA/PROD)
+- Trial: CardPilot HQ - POC (CardSight free/trial evaluation)
 
 ## Project Structure
 
@@ -127,6 +167,13 @@ RATE_LIMIT_MAX_REQUESTS=30
 
 ### `.env.prod` (Production)
 Same structure, with `APP_ENV=prod` and updated `CORS_ORIGIN`
+
+### `.env.poc` (CardSight Trial Evaluation)
+Use `AI_PROVIDER=hybrid`, `AI_PRIMARY_PROVIDER=cardsight`, and keep:
+- `POC_BUDGET_ENABLED=true`
+- `POC_MAX_ANALYZE_CALLS=120`
+- `POC_CHEAP_MODE=true`
+- `CARDSIGHT_USE_FREE_PREFLIGHT=true`
 
 ## Testing
 

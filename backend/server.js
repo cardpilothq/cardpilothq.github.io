@@ -12,6 +12,8 @@ import renameRoute from './routes/rename.js'
 import inventoryRoute from './routes/inventory.js'
 import catalogRoute from './routes/catalog.js'
 import feedbackRoute from './routes/feedback.js'
+import authRoute from './routes/auth.js'
+import ebayComplianceRoute from './routes/ebayCompliance.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -40,6 +42,13 @@ app.use(express.json())
 const RATE_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000)
 const RATE_MAX = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 30)
 const rateStore = new Map() // key → [timestamp, ...]
+
+// ── POC cost guardrail (hard cap) ───────────────────────────────────────────
+// When enabled, blocks /analyze requests after a fixed budget so free/trial
+// testing cannot unexpectedly consume paid credits.
+const POC_BUDGET_ENABLED = ['1', 'true', 'yes'].includes(String(process.env.POC_BUDGET_ENABLED || '').toLowerCase())
+const POC_MAX_ANALYZE_CALLS = Math.max(1, Number(process.env.POC_MAX_ANALYZE_CALLS || 150))
+let pocAnalyzeCalls = 0
 
 // ── Daily Azure call counter (cost guardrail observability) ──────────────────
 // Counts OCR requests per UTC day. Warns in /diagnostics when approaching the
@@ -86,7 +95,21 @@ function rateLimit(req, res, next) {
   next()
 }
 
-app.use('/analyze', rateLimit, analyzeRoute)
+function enforcePocBudget(req, res, next) {
+  if (!POC_BUDGET_ENABLED) return next()
+
+  if (pocAnalyzeCalls >= POC_MAX_ANALYZE_CALLS) {
+    return res.status(429).json({
+      error: 'POC analyze budget reached',
+      details: `POC cap of ${POC_MAX_ANALYZE_CALLS} /analyze calls reached. Increase POC_MAX_ANALYZE_CALLS or disable POC_BUDGET_ENABLED to continue.`
+    })
+  }
+
+  pocAnalyzeCalls += 1
+  next()
+}
+
+app.use('/analyze', enforcePocBudget, rateLimit, analyzeRoute)
 app.use('/generate-title', generateTitleRoute)
 app.use('/generate-description', generateDescriptionRoute)
 app.use('/detect-front-back', rateLimit, detectFrontBackRoute)
@@ -94,6 +117,8 @@ app.use('/rename', renameRoute)
 app.use('/inventory', inventoryRoute)
 app.use('/catalog', catalogRoute)
 app.use('/feedback', feedbackRoute)
+app.use('/auth', authRoute)
+app.use('/compliance/ebay', ebayComplianceRoute)
 if (hasFrontendBundle) {
   app.use(express.static(frontendDir))
 }
@@ -102,11 +127,32 @@ function parseBoolean(value) {
   return ['1','true','yes'].includes(String(value || '').toLowerCase())
 }
 
+function resolveAiProvider() {
+  const provider = String(process.env.AI_PROVIDER || 'azure').trim().toLowerCase()
+  if (provider === 'cardsight' || provider === 'hybrid') return provider
+  return 'azure'
+}
+
+function resolveAiEnabled(provider) {
+  const azureConfigured = Boolean(String(process.env.AZURE_API_KEY || '').trim())
+  const cardsightConfigured = Boolean(String(process.env.CARDSIGHT_API_KEY || '').trim())
+
+  if (provider === 'cardsight') return cardsightConfigured
+  if (provider === 'hybrid') return azureConfigured || cardsightConfigured
+  return azureConfigured
+}
+
 // ── Optional access token guard ───────────────────────────────────────────────
 // Set BETA_ACCESS_TOKEN in .env to require "Authorization: Bearer <token>" on all
 // non-public routes. Leave unset for local development (no auth required).
 const BETA_TOKEN = (process.env.BETA_ACCESS_TOKEN || '').trim()
-const PUBLIC_PATHS = new Set(['/', '/health', '/config'])
+const PUBLIC_PATHS = new Set([
+  '/',
+  '/health',
+  '/config',
+  '/auth/ebay/callback',
+  '/compliance/ebay/marketplace-account-deletion'
+])
 
 function betaAuth(req, res, next) {
   if (!BETA_TOKEN) return next() // disabled in local dev
@@ -121,11 +167,13 @@ function betaAuth(req, res, next) {
 app.use(betaAuth)
 
 app.get('/config', (req, res) => {
-  const aiEnabled = Boolean(process.env.AZURE_API_KEY)
+  const aiProvider = resolveAiProvider()
+  const aiEnabled = resolveAiEnabled(aiProvider)
   const mockEnabled = parseBoolean(process.env.USE_MOCK_AI)
   res.json({
     aiEnabled,
     mockEnabled,
+    aiProvider,
     app: {
       name: APP_NAME,
       environment: APP_ENV
@@ -139,8 +187,10 @@ app.get('/health', (req, res) => {
 
 // ── Diagnostics: beta observability surface ───────────────────────────────────
 app.get('/diagnostics', (req, res) => {
-  const aiEnabled = Boolean(process.env.AZURE_API_KEY)
+  const aiProvider = resolveAiProvider()
+  const aiEnabled = resolveAiEnabled(aiProvider)
   const mockEnabled = parseBoolean(process.env.USE_MOCK_AI)
+  const pocCheapMode = parseBoolean(process.env.POC_CHEAP_MODE)
   const betaReadinessPath = path.join(__dirname, 'data', 'reports', 'beta-readiness-latest.json')
   let betaReadiness = null
   try {
@@ -154,8 +204,14 @@ app.get('/diagnostics', (req, res) => {
       name: APP_NAME,
       environment: APP_ENV
     },
-    config: { aiEnabled, mockEnabled },
+    config: { aiEnabled, mockEnabled, aiProvider, pocCheapMode },
     rateLimit: { windowMs: RATE_WINDOW_MS, maxRequests: RATE_MAX },
+    pocBudget: {
+      enabled: POC_BUDGET_ENABLED,
+      analyzeCallsUsed: pocAnalyzeCalls,
+      analyzeCallsLimit: POC_MAX_ANALYZE_CALLS,
+      remaining: Math.max(0, POC_MAX_ANALYZE_CALLS - pocAnalyzeCalls)
+    },
     azureCostGuardrail: {
       dailyLimit: AZURE_DAILY_LIMIT || 'unlimited',
       usedToday: azureDailyCount,

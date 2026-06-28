@@ -9,6 +9,16 @@ This guide walks you through deploying CardPilot HQ as a free, publicly accessib
 - Frontend URL: `https://jayzeespc.github.io/card-automation/`
 - Backend URL: `https://cardpilot-qa.onrender.com/` (or custom domain)
 
+### Optional: Side-by-Side POC Deployment
+
+To keep your main app and trial evaluation fully separate:
+- Main: CardPilot HQ (current QA/PROD)
+- POC: CardPilot HQ - POC (CardSight free/trial)
+
+Use `setup-poc-frontend.bat` to generate a `Frontend-POC/` folder with
+`config.poc.json` applied as `config.json`, then publish that folder in a separate
+GitHub Pages repo (for example `cardpilothq-poc`).
+
 ---
 
 ## Prerequisites
@@ -57,6 +67,16 @@ git push -u origin main
 ### 2b. Verify Frontend is Accessible
 Open https://jayzeespc.github.io/card-automation/ in your browser. You should see the CardPilot HQ header (but backend errors since backend is not deployed yet).
 
+### 2c. (Optional) Deploy POC Frontend as a Separate Site
+
+```powershell
+cd d:\Website\card-automation
+setup-poc-frontend.bat
+```
+
+Then publish `Frontend-POC/` to a separate repo and enable GitHub Pages there.
+This gives you a dedicated POC URL without changing your main frontend.
+
 ---
 
 ## Step 3: Deploy Backend to Render
@@ -94,6 +114,20 @@ Open https://jayzeespc.github.io/card-automation/ in your browser. You should se
      - `CORS_ORIGIN`: `https://jayzeespc.github.io`
 
 5. **Click Deploy** (deployment takes ~2-3 minutes)
+
+### 3d. (Optional) Deploy Separate POC Backend Service
+
+Create a second Render service (for example `cardpilot-poc`) with:
+- **Build Command:** `cd backend && npm install`
+- **Start Command:** `cd backend && npm run start:poc`
+- **Plan:** Free
+
+Set POC environment variables using `backend/.env.poc.example` as reference.
+Keep these enabled for cost control:
+- `POC_BUDGET_ENABLED=true`
+- `POC_MAX_ANALYZE_CALLS=120`
+- `POC_CHEAP_MODE=true`
+- `CARDSIGHT_USE_FREE_PREFLIGHT=true`
 
 ### 3c: Get Your Backend URL
 After deployment succeeds, Render gives you a URL like: `https://cardpilot-qa.onrender.com`

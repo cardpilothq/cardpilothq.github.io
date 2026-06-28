@@ -5,6 +5,7 @@
 CardPilot HQ supports separate QA and PROD environment profiles.
 
 - `QA`: use for feature validation and tester feedback.
+- `POC`: low-cost CardSight trial evaluation mode with hard usage guardrails.
 - `PROD`: reserved for your eventual production rollout.
 
 ### Quick Setup for QA (Home Network)
@@ -33,6 +34,27 @@ When you are ready later:
 ```powershell
 npm run start:prod
 ```
+
+### POC (CardSight Free/Trial Evaluation)
+
+When you want to run a side-by-side proof-of-concept without changing your QA setup:
+
+1. Copy `backend/.env.poc.example` to `backend/.env.poc`.
+2. Fill in `CARDSIGHT_API_KEY` (free/trial key) and keep cost controls enabled.
+3. Start with:
+
+```powershell
+npm run start:poc
+```
+
+POC defaults are designed to be cost-effective:
+- Hard analyze cap (`POC_BUDGET_ENABLED`, `POC_MAX_ANALYZE_CALLS`)
+- Cheap mode single-pass (`POC_CHEAP_MODE=true`)
+- Provider hybrid fallback (`AI_PROVIDER=hybrid`)
+- Free preflight detect call before identify (`CARDSIGHT_USE_FREE_PREFLIGHT=true`)
+
+For separate frontend hosting, run `setup-poc-frontend.bat` from the repository root
+to create `Frontend-POC/` with `config.poc.json` applied to `config.json`.
 
 ## Quick Start
 
@@ -74,6 +96,9 @@ npm start
 # Start QA profile (CardPilot HQ)
 npm run start:qa
 
+# Start POC profile (CardPilot HQ - POC)
+npm run start:poc
+
 # Start PROD profile (when ready)
 npm run start:prod
 
@@ -113,6 +138,7 @@ Create a `.env`, `.env.qa`, or `.env.prod` file with:
 ```
 APP_NAME=CardPilot HQ
 APP_ENV=qa
+AI_PROVIDER=azure
 AZURE_ENDPOINT=https://your-resource.cognitiveservices.azure.com
 AZURE_API_KEY=your-api-key-here
 AZURE_MODEL_ID=prebuilt-read
@@ -137,7 +163,55 @@ RATE_LIMIT_MAX_REQUESTS=30
 # --- Azure retry settings (optional, defaults shown) ---
 AZURE_RETRY_ATTEMPTS=3
 AZURE_SUBMIT_RETRY_ATTEMPTS=4
+
+# --- Provider mode (POC/hybrid) ---
+# azure | cardsight | hybrid
+AI_PROVIDER=azure
+AI_PRIMARY_PROVIDER=cardsight
+AI_FALLBACK_PROVIDER=azure
+AI_PROVIDER_ALLOW_FIELD_FALLBACK=true
+
+# --- CardSight (POC) ---
+CARDSIGHT_BASE_URL=https://api.cardsight.ai
+CARDSIGHT_API_KEY=
+CARDSIGHT_TIMEOUT_MS=30000
+CARDSIGHT_USE_FREE_PREFLIGHT=true
+
+# --- POC cost controls ---
+POC_BUDGET_ENABLED=true
+POC_MAX_ANALYZE_CALLS=120
+POC_CHEAP_MODE=true
 ```
+
+### eBay OAuth (Local Test Flow)
+
+CardPilot HQ now includes a live eBay OAuth start/callback flow behind the Profile > Connections > eBay card.
+
+To test it locally:
+
+1. In the eBay developer portal, configure your app's auth redirect URL to:
+
+```text
+http://localhost:3001/auth/ebay/callback
+```
+
+2. Copy the app credentials into your active backend env file:
+
+```text
+EBAY_ENV=production
+EBAY_CLIENT_ID=...
+EBAY_CLIENT_SECRET=...
+EBAY_RUNAME=...
+FRONTEND_BASE_URL=http://localhost:3001
+EBAY_OAUTH_SCOPES=https://api.ebay.com/oauth/api_scope,https://api.ebay.com/oauth/api_scope/sell.account,https://api.ebay.com/oauth/api_scope/sell.inventory,https://api.ebay.com/oauth/api_scope/sell.fulfillment,https://api.ebay.com/oauth/api_scope/sell.analytics.readonly
+```
+
+3. Restart the backend.
+4. Open `http://localhost:3001/`.
+5. Sign in to CardPilot HQ.
+6. Open Profile and use `Connect eBay OAuth` on the eBay connection card.
+
+If the env vars are missing, the UI now reports exactly which keys are not configured.
 
 ### Troubleshooting
 

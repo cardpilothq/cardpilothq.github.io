@@ -1,0 +1,67 @@
+{
+  "id": "fb221966-7dea-4c91-91e4-cc76c9092c10",
+  "submittedAt": "2026-06-27T19:19:51.839Z",
+  "status": "queued",
+  "channel": "ebay-storefront",
+  "template": {
+    "id": "3fcfcce5-109d-4e6a-96ab-faf511a178dc",
+    "name": "Single Card Fixed Price",
+    "templateType": "single",
+    "resolvedType": "single",
+    "ebayFormat": "FixedPrice",
+    "defaults": {
+      "quantity": 1,
+      "bestOfferEnabled": true,
+      "duration": "GTC"
+    }
+  },
+  "listing": {
+    "listingType": "single",
+    "title": "2025 Panini Donruss Optic Jake Plummer #189",
+    "subtitle": "Donruss Optic single card listing",
+    "sport": "Football",
+    "player": "Jake Plummer",
+    "team": "Arizona Cardinals",
+    "set": "Donruss Optic",
+    "year": "2025",
+    "cardNumber": "189",
+    "parallel": "",
+    "format": "FixedPrice",
+    "quantity": 1,
+    "conditionId": 4000,
+    "type": "Sports Trading Card",
+    "cards": [
+      {
+        "id": "ba834b0f-911f-43e6-8751-eb0968464565",
+        "cardNumber": "189",
+        "player": "Jake Plummer",
+        "team": "Arizona Cardinals",
+        "position": "QB",
+        "parallel": "",
+        "rookie": "",
+        "sport": "Football",
+        "year": "2025",
+        "brand": "Panini",
+        "setName": "Donruss Optic"
+      }
+    ],
+    "itemSpecifics": {
+      "Card Number": "189",
+      "Player": "Jake Plummer",
+      "Team": "Arizona Cardinals",
+      "Set": "Donruss Optic",
+      "Year": "2025",
+      "Parallel": ""
+    },
+    "description": "Standard single-card fixed price listing.",
+    "templateType": "single"
+  },
+  "source": {
+    "templateId": "3fcfcce5-109d-4e6a-96ab-faf511a178dc",
+    "cardIds": [],
+    "cardId": "SKU-000006",
+    "cardRef": "SKU-000006",
+    "chaseCardId": "",
+    "chaseCardRef": ""
+  }
+}

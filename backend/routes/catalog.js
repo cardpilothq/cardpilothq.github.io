@@ -12,6 +12,7 @@ import {
   listTemplates,
   createTemplate,
   buildListingDraft,
+  submitListingDraft,
   initializeCatalogDatabase
 } from '../services/cardCatalogService.js'
 
@@ -191,6 +192,16 @@ router.post('/listing-draft', async (req, res) => {
   } catch (err) {
     console.error('Catalog listing draft failed:', err)
     res.status(400).json({ ok: false, error: err.message || 'Failed to build listing draft.' })
+  }
+})
+
+router.post('/listing-submit', async (req, res) => {
+  try {
+    const result = await submitListingDraft(req.body || {})
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    console.error('Catalog listing submit failed:', err)
+    res.status(400).json({ ok: false, error: err.message || 'Failed to submit listing draft.' })
   }
 })
 

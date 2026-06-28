@@ -51,8 +51,12 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     console.log(`Analyze request received file=${req.file.originalname} bytes=${req.file.buffer.length}`)
 
-    console.log('Analyze mode: SINGLE_PASS_WITH_FALLBACK_VARIANTS')
-    const parsed = await analyzeCardBuffer(req.file.buffer, { sport: 'Football' })
+    const cheapMode = ['1', 'true', 'yes'].includes(String(process.env.POC_CHEAP_MODE || '').toLowerCase())
+    console.log(`Analyze mode: ${cheapMode ? 'SINGLE_PASS_ONLY' : 'SINGLE_PASS_WITH_FALLBACK_VARIANTS'}`)
+    const parsed = await analyzeCardBuffer(req.file.buffer, {
+      sport: 'Football',
+      disableEnhancementFallback: cheapMode
+    })
 
     const hasParsedData = Object.values(parsed).some(Boolean)
     if (!hasParsedData) {

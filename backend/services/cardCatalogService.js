@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename)
 const dataDir = path.resolve(__dirname, '..', 'data')
 const sqlitePath = path.join(dataDir, 'catalog.db')
 const inventorySqlitePath = path.join(dataDir, 'inventory.db')
+const listingSubmissionDir = path.join(dataDir, 'reports', 'listing-submissions')
 
 let db = null
 let initPromise = null
@@ -183,19 +184,25 @@ function normalizeIdList(value) {
 
 function summarizeCard(card) {
   if (!card) return null
+  const parallel = safeString(card.parallel) || 'Base'
+  const rookie = safeString(card.rookie) || 'Unknown'
   return {
     id: card.id,
     cardNumber: card.cardNumber,
     player: card.player,
     team: card.team,
     position: card.position,
-    parallel: card.parallel,
-    rookie: card.rookie,
+    parallel,
+    rookie,
     sport: card.sport,
     year: card.year,
     brand: card.brand,
     setName: card.setName
   }
+}
+
+function normalizeParallelValue(value) {
+  return safeString(value) || 'Base'
 }
 
 function buildCardTitleParts(card) {
@@ -1148,6 +1155,40 @@ export async function buildListingDraft(input = {}) {
   return buildListingDraftFromInput(input)
 }
 
+export async function submitListingDraft(input = {}) {
+  const draft = await buildListingDraftFromInput(input)
+  const submittedAt = new Date().toISOString()
+  const submission = {
+    id: randomUUID(),
+    submittedAt,
+    status: 'queued',
+    channel: 'ebay-storefront',
+    template: draft.template,
+    listing: draft.listing,
+    source: {
+      templateId: String(input?.templateId || ''),
+      cardIds: normalizeIdList(input?.cardIds),
+      cardId: safeString(input?.cardId || ''),
+      cardRef: safeString(input?.cardRef || ''),
+      chaseCardId: safeString(input?.chaseCardId || ''),
+      chaseCardRef: safeString(input?.chaseCardRef || '')
+    }
+  }
+
+  await fs.mkdir(listingSubmissionDir, { recursive: true })
+  const fileName = `${submittedAt.replace(/[:.]/g, '-')}-${submission.id}.json`
+  const filePath = path.join(listingSubmissionDir, fileName)
+  await fs.writeFile(filePath, JSON.stringify(submission, null, 2), 'utf8')
+
+  return {
+    draft,
+    submission: {
+      ...submission,
+      fileName
+    }
+  }
+}
+
 async function fetchCardsByIds(cardIds = []) {
   const ids = normalizeIdList(cardIds)
   if (!ids.length) return []
@@ -1292,6 +1333,7 @@ function serializeTemplate(template) {
 
 function buildSingleListing(card, template, defaults) {
   const title = buildCardTitleParts(card).join(' ')
+  const parallel = normalizeParallelValue(card.parallel)
 
   return {
     listingType: 'single',
@@ -1303,7 +1345,7 @@ function buildSingleListing(card, template, defaults) {
     set: card.setName,
     year: card.year,
     cardNumber: card.cardNumber,
-    parallel: card.parallel,
+    parallel,
     format: template.ebayFormat,
     quantity: Number(defaults.quantity || 1),
     conditionId: 4000,
@@ -1315,7 +1357,7 @@ function buildSingleListing(card, template, defaults) {
       'Team': card.team,
       'Set': card.setName,
       'Year': card.year,
-      'Parallel': card.parallel || ''
+      'Parallel': parallel
     },
     description: 'Standard single-card fixed price listing.'
   }
@@ -1325,6 +1367,7 @@ function buildVariationListing(cards, template, defaults) {
   const leadCard = cards[0]
   const setTitleParts = [leadCard.year, leadCard.brand, leadCard.setName].map(v => safeString(v)).filter(Boolean)
   const optionCount = cards.length
+  const parallel = normalizeParallelValue(leadCard.parallel)
 
   return {
     listingType: 'variation',
@@ -1336,7 +1379,7 @@ function buildVariationListing(cards, template, defaults) {
     set: leadCard.setName,
     year: leadCard.year,
     cardNumber: leadCard.cardNumber,
-    parallel: leadCard.parallel,
+    parallel,
     format: template.ebayFormat,
     quantity: Number(defaults.quantity || optionCount || 1),
     conditionId: 4000,
@@ -1358,10 +1401,12 @@ function buildLotListing(cards, template, defaults) {
   const leadCard = cards[0]
   const lotSize = Number(defaults.lotSize || cards.length || 1)
   const sampleNames = cards.slice(0, 3).map(card => buildVariationLabel(card)).filter(Boolean)
+  const titleParts = [leadCard.year, leadCard.brand, leadCard.setName].map((value) => safeString(value)).filter(Boolean)
+  const parallel = normalizeParallelValue(leadCard.parallel)
 
   return {
     listingType: 'lot',
-    title: `${leadCard.year} ${leadCard.brand} ${leadCard.setName} Lot of ${cards.length} Cards`,
+    title: `${titleParts.join(' ')} Lot of ${cards.length} Cards`,
     subtitle: sampleNames.length ? `Includes ${sampleNames.join(', ')}` : `Mixed lot of ${cards.length} cards`,
     sport: leadCard.sport,
     player: leadCard.player,
@@ -1369,7 +1414,7 @@ function buildLotListing(cards, template, defaults) {
     set: leadCard.setName,
     year: leadCard.year,
     cardNumber: leadCard.cardNumber,
-    parallel: leadCard.parallel,
+    parallel,
     format: template.ebayFormat,
     quantity: lotSize,
     conditionId: 4000,
@@ -1387,10 +1432,12 @@ function buildLotListing(cards, template, defaults) {
 function buildBulkListing(cards, template, defaults) {
   const leadCard = cards[0]
   const quantity = Number(defaults.quantity || cards.length || 1)
+  const titleParts = [leadCard.year, leadCard.brand, leadCard.setName].map((value) => safeString(value)).filter(Boolean)
+  const parallel = normalizeParallelValue(leadCard.parallel)
 
   return {
     listingType: 'bulk',
-    title: `${leadCard.year} ${leadCard.brand} ${leadCard.setName} Quantity Listing`,
+    title: `${titleParts.join(' ')} Quantity Listing`,
     subtitle: `Great for moving ${cards.length} cards as one active inventory listing`,
     sport: leadCard.sport,
     player: leadCard.player,
@@ -1398,7 +1445,7 @@ function buildBulkListing(cards, template, defaults) {
     set: leadCard.setName,
     year: leadCard.year,
     cardNumber: leadCard.cardNumber,
-    parallel: leadCard.parallel,
+    parallel,
     format: template.ebayFormat,
     quantity,
     conditionId: 4000,
@@ -1417,10 +1464,12 @@ function buildMysteryPackListing(cards, chaseCard, template, defaults) {
   const leadCard = chaseCard || cards[0]
   const packSize = Number(defaults.packSize || 1)
   const quantity = Number(defaults.quantity || cards.length || 1)
+  const titleParts = [leadCard.year, leadCard.brand, leadCard.setName].map((value) => safeString(value)).filter(Boolean)
+  const parallel = normalizeParallelValue(leadCard.parallel)
 
   return {
     listingType: 'mystery-pack',
-    title: `${leadCard.year} ${leadCard.brand} ${leadCard.setName} Mystery Pack - Chase ${leadCard.player} #${leadCard.cardNumber}`,
+    title: `${titleParts.join(' ')} Mystery Pack - Chase ${leadCard.player} #${leadCard.cardNumber}`,
     subtitle: 'Mystery pack with a featured chase card to drive interest',
     sport: leadCard.sport,
     player: leadCard.player,
@@ -1428,7 +1477,7 @@ function buildMysteryPackListing(cards, chaseCard, template, defaults) {
     set: leadCard.setName,
     year: leadCard.year,
     cardNumber: leadCard.cardNumber,
-    parallel: leadCard.parallel,
+    parallel,
     format: template.ebayFormat,
     quantity,
     conditionId: 4000,

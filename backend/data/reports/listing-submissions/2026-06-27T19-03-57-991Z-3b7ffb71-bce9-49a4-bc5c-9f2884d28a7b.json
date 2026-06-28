@@ -1,0 +1,79 @@
+{
+  "id": "3b7ffb71-bce9-49a4-bc5c-9f2884d28a7b",
+  "submittedAt": "2026-06-27T19:03:57.991Z",
+  "status": "queued",
+  "channel": "ebay-storefront",
+  "template": {
+    "id": "0434bd25-bd06-4bf3-aafa-1b016e4d689b",
+    "name": "Bulk Inventory Multi-Qty",
+    "templateType": "bulk",
+    "resolvedType": "bulk",
+    "ebayFormat": "FixedPrice",
+    "defaults": {
+      "quantity": 25,
+      "lotSize": 1
+    }
+  },
+  "listing": {
+    "listingType": "bulk",
+    "title": "2025  Donruss Optic Quantity Listing",
+    "subtitle": "Great for moving 1 cards as one active inventory listing",
+    "sport": "Football",
+    "player": "Jake Plummer",
+    "team": "Arizona Cardinals",
+    "set": "Donruss Optic",
+    "year": "2025",
+    "cardNumber": "189",
+    "parallel": "",
+    "format": "FixedPrice",
+    "quantity": 25,
+    "conditionId": 4000,
+    "type": "Sports Trading Card",
+    "cards": [
+      {
+        "id": "8cc3d385-8963-4a01-beb2-76add00db01d",
+        "cardNumber": "189",
+        "player": "Jake Plummer",
+        "team": "Arizona Cardinals",
+        "position": "QB",
+        "parallel": "",
+        "rookie": "No",
+        "sport": "Football",
+        "year": "2025",
+        "brand": "",
+        "setName": "Donruss Optic"
+      }
+    ],
+    "bulk": {
+      "quantity": 25,
+      "cardCount": 1,
+      "sourceCards": [
+        {
+          "id": "8cc3d385-8963-4a01-beb2-76add00db01d",
+          "cardNumber": "189",
+          "player": "Jake Plummer",
+          "team": "Arizona Cardinals",
+          "position": "QB",
+          "parallel": "",
+          "rookie": "No",
+          "sport": "Football",
+          "year": "2025",
+          "brand": "",
+          "setName": "Donruss Optic"
+        }
+      ]
+    },
+    "description": "Quantity-based listing designed to clear grouped inventory.",
+    "templateType": "bulk"
+  },
+  "source": {
+    "templateId": "0434bd25-bd06-4bf3-aafa-1b016e4d689b",
+    "cardIds": [
+      "8cc3d385-8963-4a01-beb2-76add00db01d"
+    ],
+    "cardId": "",
+    "cardRef": "8cc3d385-8963-4a01-beb2-76add00db01d",
+    "chaseCardId": "",
+    "chaseCardRef": ""
+  }
+}

@@ -5,7 +5,6 @@ const ALLOWED_CARD_YEARS = ['2025', '2026', '2025-2026'];
 const SKU_COMMITTED_COUNTER_KEY = 'cardAutoCommittedSkuCounter';
 const ACTIVE_SPORT_KEY = 'cardAutoActiveSport';
 const ACTIVE_PAGE_KEY = 'cardAutoActivePage';
-const AUTH_TOKEN_KEY = 'cardPilotAuthToken';
 const IMPORT_IN_PROGRESS_KEY = 'cardAutoImportInProgress';
 const SCAN_DRAFT_KEY = 'cardAutoScanDraft';
 const SCAN_DRAFT_DB_NAME = 'cardAutoScanDraftDB';
@@ -16,48 +15,6 @@ const OCR_WINDOW_MS = 60_000;
 const OCR_MAX_PER_WINDOW = 30;
 const OCR_CLIENT_HEADROOM = 8;
 const OCR_MIN_INTERVAL_MS = 2500;
-const DEFAULT_CONNECTION_PROVIDERS = [
-  {
-    key: 'ebay',
-    label: 'eBay',
-    category: 'listing',
-    authTypes: ['oauth', 'api-key', 'manual'],
-    supportsDirectAuth: true,
-    notes: 'Best target for listing submission and sold-listing research.'
-  },
-  {
-    key: '130point',
-    label: '130point.com',
-    category: 'research',
-    authTypes: ['manual', 'cookie-session'],
-    supportsDirectAuth: false,
-    notes: 'Useful for sold-price research. Direct sign-in usually needs a custom workflow.'
-  },
-  {
-    key: 'collx',
-    label: 'CollX',
-    category: 'research',
-    authTypes: ['oauth', 'manual'],
-    supportsDirectAuth: false,
-    notes: 'Useful for collection and pricing research.'
-  },
-  {
-    key: 'ludex',
-    label: 'Ludex',
-    category: 'research',
-    authTypes: ['oauth', 'manual'],
-    supportsDirectAuth: false,
-    notes: 'Useful for pricing and collection workflows.'
-  },
-  {
-    key: 'other',
-    label: 'Other',
-    category: 'custom',
-    authTypes: ['oauth', 'api-key', 'manual', 'cookie-session'],
-    supportsDirectAuth: false,
-    notes: 'Use this for additional marketplaces, research systems, or listing tools.'
-  }
-];
 
 let ocrWindowStartMs = Date.now();
 let ocrCallsInWindow = 0;
@@ -121,8 +78,6 @@ const navScanBtn = document.getElementById("navScanBtn");
 const navInventoryBtn = document.getElementById("navInventoryBtn");
 const navPricingBtn = document.getElementById("navPricingBtn");
 const navListingsBtn = document.getElementById("navListingsBtn");
-const navProfileBtn = document.getElementById("navProfileBtn");
-const accountProfileBtn = document.getElementById("accountProfileBtn");
 const homeGoScanBtn = document.getElementById("homeGoScanBtn");
 const homeGoInventoryBtn = document.getElementById("homeGoInventoryBtn");
 const homePage = document.getElementById("homePage");
@@ -130,7 +85,6 @@ const scanPage = document.getElementById("scanPage");
 const inventoryPage = document.getElementById("inventoryPage");
 const pricingPage = document.getElementById("pricingPage");
 const listingsPage = document.getElementById("listingsPage");
-const profilePage = document.getElementById("profilePage");
 const saveInventoryBtn = document.getElementById("saveInventoryBtn");
 const refreshInventoryBtn = document.getElementById("refreshInventoryBtn");
 const openPricingAnalyzeBtn = document.getElementById("openPricingAnalyzeBtn");
@@ -193,31 +147,6 @@ const feedbackTitleInput = document.getElementById("feedbackTitleInput");
 const feedbackEmailInput = document.getElementById("feedbackEmailInput");
 const feedbackMessageInput = document.getElementById("feedbackMessageInput");
 const feedbackStatus = document.getElementById("feedbackStatus");
-const profileHeroStatus = document.getElementById("profileHeroStatus");
-const profileAuthPanel = document.getElementById("profileAuthPanel");
-const profileWorkspace = document.getElementById("profileWorkspace");
-const signupDisplayNameInput = document.getElementById("signupDisplayNameInput");
-const signupEmailInput = document.getElementById("signupEmailInput");
-const signupPasswordInput = document.getElementById("signupPasswordInput");
-const signupSubmitBtn = document.getElementById("signupSubmitBtn");
-const loginEmailInput = document.getElementById("loginEmailInput");
-const loginPasswordInput = document.getElementById("loginPasswordInput");
-const loginSubmitBtn = document.getElementById("loginSubmitBtn");
-const profileAccountSummary = document.getElementById("profileAccountSummary");
-const profileDisplayNameInput = document.getElementById("profileDisplayNameInput");
-const saveProfileBtn = document.getElementById("saveProfileBtn");
-const logoutBtn = document.getElementById("logoutBtn");
-const profileConnectionProviderSelect = document.getElementById("profileConnectionProviderSelect");
-const profileCustomProviderRow = document.getElementById("profileCustomProviderRow");
-const profileCustomProviderInput = document.getElementById("profileCustomProviderInput");
-const profileConnectionCapabilitySelect = document.getElementById("profileConnectionCapabilitySelect");
-const profileConnectionStatusSelect = document.getElementById("profileConnectionStatusSelect");
-const profileConnectionAuthTypeSelect = document.getElementById("profileConnectionAuthTypeSelect");
-const profileConnectionAccountLabelInput = document.getElementById("profileConnectionAccountLabelInput");
-const profileConnectionNotesInput = document.getElementById("profileConnectionNotesInput");
-const saveConnectionBtn = document.getElementById("saveConnectionBtn");
-const resetConnectionFormBtn = document.getElementById("resetConnectionFormBtn");
-const profileConnectionsList = document.getElementById("profileConnectionsList");
 
 let viewerScale = 1;
 let viewerOffsetX = 0;
@@ -252,15 +181,6 @@ const PRICING_ESTIMATE_CACHE_KEY = 'cardPilotPricingEstimateByFingerprint'
 let inventoryRowsCache = []
 let inventoryEditingRowId = ''
 let pricingEstimateByFingerprint = {}
-let authToken = ''
-let authState = {
-  user: null,
-  session: null,
-  connections: [],
-  providers: DEFAULT_CONNECTION_PROVIDERS.map((provider) => ({ ...provider }))
-}
-let editingConnectionProviderSlug = ''
-let oauthReturnContextHandled = false
 
 function sanitizeSubmitPayload(value, path = '', replacements = []) {
   if (value === null || value === undefined) {
@@ -296,47 +216,9 @@ function uniqueValues(values = []) {
   return [...new Set(Array.isArray(values) ? values : [])]
 }
 
-function currentUserScopeKey() {
-  return String(authState?.user?.id || 'anonymous').trim() || 'anonymous'
-}
-
-function scopedStorageKey(baseKey) {
-  return `${baseKey}:${currentUserScopeKey()}`
-}
-
-function getUrlContext() {
-  if (typeof window === 'undefined') return { page: '', oauth: '', oauthMessage: '' }
-  const params = new URLSearchParams(window.location.search || '')
-  return {
-    page: String(params.get('page') || '').trim().toLowerCase(),
-    oauth: String(params.get('oauth') || '').trim().toLowerCase(),
-    oauthMessage: String(params.get('oauthMessage') || '').trim()
-  }
-}
-
-function clearUrlContext() {
-  if (typeof window === 'undefined' || !window.history?.replaceState) return
-  const nextUrl = `${window.location.pathname}${window.location.hash || ''}`
-  window.history.replaceState({}, document.title, nextUrl)
-}
-
-function applyOAuthReturnContext() {
-  if (oauthReturnContextHandled) return
-  const context = getUrlContext()
-  if (!context.oauth) return
-
-  oauthReturnContextHandled = true
-  setActivePage(context.page === 'profile' ? 'profile' : getInitialActivePage())
-  showProfileStatus(
-    context.oauthMessage || (context.oauth === 'ebay-success' ? 'eBay OAuth connected successfully.' : 'OAuth flow finished.'),
-    context.oauth.includes('error')
-  )
-  clearUrlContext()
-}
-
 function getPricingState() {
   try {
-    const raw = localStorage.getItem(scopedStorageKey(PRICING_STORAGE_KEY))
+    const raw = localStorage.getItem(PRICING_STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     return parsed && typeof parsed === 'object' ? parsed : {}
   } catch {
@@ -346,7 +228,7 @@ function getPricingState() {
 
 function getPricingEstimateState() {
   try {
-    const raw = localStorage.getItem(scopedStorageKey(PRICING_ESTIMATE_CACHE_KEY))
+    const raw = localStorage.getItem(PRICING_ESTIMATE_CACHE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     return parsed && typeof parsed === 'object' ? parsed : {}
   } catch {
@@ -355,11 +237,11 @@ function getPricingEstimateState() {
 }
 
 function setPricingEstimateState(nextState) {
-  localStorage.setItem(scopedStorageKey(PRICING_ESTIMATE_CACHE_KEY), JSON.stringify(nextState || {}))
+  localStorage.setItem(PRICING_ESTIMATE_CACHE_KEY, JSON.stringify(nextState || {}))
 }
 
 function setPricingState(nextState) {
-  localStorage.setItem(scopedStorageKey(PRICING_STORAGE_KEY), JSON.stringify(nextState || {}))
+  localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(nextState || {}))
 }
 
 function showPricingStatus(message, isError = false) {
@@ -374,540 +256,6 @@ function showListingStatus(message, isError = false) {
   listingStatus.style.display = message ? 'block' : 'none'
   listingStatus.style.color = isError ? '#a52020' : '#3f4f8e'
   listingStatus.textContent = message || ''
-}
-
-function cloneProviderCatalog() {
-  const providers = Array.isArray(authState?.providers) && authState.providers.length
-    ? authState.providers
-    : DEFAULT_CONNECTION_PROVIDERS
-  return providers.map((provider) => ({ ...provider }))
-}
-
-function getStoredAuthToken() {
-  try {
-    return String(localStorage.getItem(AUTH_TOKEN_KEY) || '').trim()
-  } catch {
-    return ''
-  }
-}
-
-function persistAuthToken(token) {
-  authToken = String(token || '').trim()
-  try {
-    if (authToken) localStorage.setItem(AUTH_TOKEN_KEY, authToken)
-    else localStorage.removeItem(AUTH_TOKEN_KEY)
-  } catch {
-    // Ignore storage errors.
-  }
-}
-
-function escapeHtml(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-function formatProfileDate(value) {
-  const parsed = Date.parse(String(value || ''))
-  if (!Number.isFinite(parsed)) return 'Unknown'
-  return new Date(parsed).toLocaleString()
-}
-
-function showProfileStatus(message, isError = false) {
-  if (!profileHeroStatus) return
-  profileHeroStatus.textContent = message || ''
-  profileHeroStatus.style.background = isError ? '#ffe7e7' : '#eef3ff'
-  profileHeroStatus.style.color = isError ? '#8a1f1f' : '#30427a'
-}
-
-function getConnectionBySlug(providerSlug) {
-  const connections = Array.isArray(authState?.connections) ? authState.connections : []
-  return connections.find((connection) => String(connection?.providerSlug || connection?.provider || '') === String(providerSlug || '')) || null
-}
-
-function getProviderTemplate(providerKey) {
-  return cloneProviderCatalog().find((provider) => provider.key === providerKey) || null
-}
-
-function currentConnectionFormSlug() {
-  const providerKey = String(profileConnectionProviderSelect?.value || '').trim().toLowerCase()
-  if (providerKey !== 'other') return providerKey
-  const customName = String(profileCustomProviderInput?.value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  return `other:${customName || 'custom'}`
-}
-
-function updateAccountButtonLabel() {
-  if (!accountProfileBtn) return
-  const name = String(authState?.user?.displayName || authState?.user?.email || '').trim()
-  accountProfileBtn.textContent = name ? `Profile: ${name}` : 'Sign In'
-}
-
-function populateConnectionProviderOptions(selectedKey = '') {
-  if (!profileConnectionProviderSelect) return
-  const providers = cloneProviderCatalog()
-  const targetKey = selectedKey || String(profileConnectionProviderSelect.value || providers[0]?.key || 'ebay')
-  profileConnectionProviderSelect.innerHTML = ''
-  providers.forEach((provider) => {
-    const option = document.createElement('option')
-    option.value = provider.key
-    option.textContent = provider.label
-    profileConnectionProviderSelect.appendChild(option)
-  })
-  profileConnectionProviderSelect.value = providers.some((provider) => provider.key === targetKey)
-    ? targetKey
-    : (providers[0]?.key || 'ebay')
-}
-
-function populateConnectionAuthTypeOptions() {
-  if (!profileConnectionAuthTypeSelect) return
-  const providerKey = String(profileConnectionProviderSelect?.value || '').trim().toLowerCase()
-  const template = getProviderTemplate(providerKey)
-  const authTypes = Array.isArray(template?.authTypes) && template.authTypes.length
-    ? template.authTypes
-    : ['manual']
-  const currentValue = String(profileConnectionAuthTypeSelect.value || '').trim().toLowerCase()
-  profileConnectionAuthTypeSelect.innerHTML = ''
-  authTypes.forEach((authType) => {
-    const option = document.createElement('option')
-    option.value = authType
-    option.textContent = authType.replace(/-/g, ' ')
-    profileConnectionAuthTypeSelect.appendChild(option)
-  })
-  profileConnectionAuthTypeSelect.value = authTypes.includes(currentValue) ? currentValue : authTypes[0]
-}
-
-function toggleCustomProviderRow() {
-  const isOther = String(profileConnectionProviderSelect?.value || '').trim().toLowerCase() === 'other'
-  if (profileCustomProviderRow) {
-    profileCustomProviderRow.style.display = isOther ? 'flex' : 'none'
-  }
-}
-
-function resetConnectionForm(providerKey = '') {
-  editingConnectionProviderSlug = ''
-  populateConnectionProviderOptions(providerKey || 'ebay')
-  toggleCustomProviderRow()
-  populateConnectionAuthTypeOptions()
-  if (profileCustomProviderInput) profileCustomProviderInput.value = ''
-  if (profileConnectionCapabilitySelect) profileConnectionCapabilitySelect.value = 'research'
-  if (profileConnectionStatusSelect) profileConnectionStatusSelect.value = 'planned'
-  if (profileConnectionAccountLabelInput) profileConnectionAccountLabelInput.value = ''
-  if (profileConnectionNotesInput) profileConnectionNotesInput.value = ''
-}
-
-function loadConnectionIntoForm(providerSlug) {
-  const connection = getConnectionBySlug(providerSlug)
-  if (!connection) {
-    resetConnectionForm(String(providerSlug || '').split(':')[0] || 'ebay')
-    return
-  }
-
-  editingConnectionProviderSlug = String(connection.providerSlug || connection.provider || '')
-  populateConnectionProviderOptions(connection.provider)
-  toggleCustomProviderRow()
-  if (profileCustomProviderInput) profileCustomProviderInput.value = connection.customProviderName || ''
-  populateConnectionAuthTypeOptions()
-  if (profileConnectionCapabilitySelect) profileConnectionCapabilitySelect.value = connection.capability || 'research'
-  if (profileConnectionStatusSelect) profileConnectionStatusSelect.value = connection.status || 'planned'
-  if (profileConnectionAuthTypeSelect) profileConnectionAuthTypeSelect.value = connection.authType || profileConnectionAuthTypeSelect.value
-  if (profileConnectionAccountLabelInput) profileConnectionAccountLabelInput.value = connection.accountLabel || ''
-  if (profileConnectionNotesInput) profileConnectionNotesInput.value = connection.notes || ''
-}
-
-function renderConnectionsList() {
-  if (!profileConnectionsList) return
-
-  const providers = cloneProviderCatalog().filter((provider) => provider.key !== 'other')
-  const connectionItems = []
-
-  providers.forEach((provider) => {
-    const connection = getConnectionBySlug(provider.key)
-    connectionItems.push({
-      providerKey: provider.key,
-      providerSlug: provider.key,
-      label: provider.label,
-      notes: provider.notes,
-      supportsDirectAuth: provider.supportsDirectAuth,
-      authTypes: provider.authTypes,
-      connection
-    })
-  })
-
-  const customConnections = (Array.isArray(authState?.connections) ? authState.connections : [])
-    .filter((connection) => connection.provider === 'other')
-    .sort((left, right) => String(left.providerLabel || '').localeCompare(String(right.providerLabel || '')))
-
-  customConnections.forEach((connection) => {
-    connectionItems.push({
-      providerKey: 'other',
-      providerSlug: connection.providerSlug,
-      label: connection.providerLabel || connection.customProviderName || 'Custom Provider',
-      notes: 'Custom provider record for additional marketplaces or research systems.',
-      supportsDirectAuth: false,
-      authTypes: ['oauth', 'api-key', 'manual', 'cookie-session'],
-      connection
-    })
-  })
-
-  profileConnectionsList.innerHTML = connectionItems.map((item) => {
-    const status = item.connection?.status || 'not connected'
-    const capability = item.connection?.capability || (item.providerKey === 'ebay' ? 'research+listings' : 'research')
-    const authType = item.connection?.authType || item.authTypes[0] || 'manual'
-    const buttonLabel = item.connection ? 'Edit' : 'Set Up'
-    const accountLabel = item.connection?.accountLabel ? `<p><strong>Account:</strong> ${escapeHtml(item.connection.accountLabel)}</p>` : ''
-    const noteText = item.connection?.notes || item.notes || ''
-    const oauthConnected = Boolean(item.connection?.metadata?.oauthConnected)
-    const oauthExpiresAt = item.connection?.metadata?.oauthExpiresAt
-      ? `<p><strong>OAuth Expires:</strong> ${escapeHtml(formatProfileDate(item.connection.metadata.oauthExpiresAt))}</p>`
-      : ''
-    const directAction = item.providerKey === 'ebay'
-      ? `<button type="button" class="primary-btn" data-provider-oauth="ebay">${oauthConnected ? 'Reconnect eBay OAuth' : 'Connect eBay OAuth'}</button>`
-      : ''
-    return `
-      <article class="profile-connection-item">
-        <h4>${escapeHtml(item.label)}</h4>
-        <div class="profile-connection-meta">
-          <span class="profile-connection-chip">${escapeHtml(status)}</span>
-          <span class="profile-connection-chip">${escapeHtml(capability)}</span>
-          <span class="profile-connection-chip">${escapeHtml(authType)}</span>
-          ${oauthConnected ? '<span class="profile-connection-chip">oauth live</span>' : ''}
-        </div>
-        ${accountLabel}
-        ${oauthExpiresAt}
-        <p>${escapeHtml(noteText)}</p>
-        <div class="profile-connection-actions">
-          ${directAction}
-          <button type="button" data-provider-slug="${escapeHtml(item.providerSlug)}">${buttonLabel}</button>
-        </div>
-      </article>
-    `
-  }).join('')
-
-  profileConnectionsList.querySelectorAll('button[data-provider-slug]').forEach((button) => {
-    button.addEventListener('click', () => {
-      loadConnectionIntoForm(button.getAttribute('data-provider-slug') || '')
-      showProfileStatus(`Editing ${button.closest('.profile-connection-item')?.querySelector('h4')?.textContent || 'connection'}.`)
-    })
-  })
-
-  profileConnectionsList.querySelectorAll('button[data-provider-oauth="ebay"]').forEach((button) => {
-    button.addEventListener('click', beginEbayOAuthFlow)
-  })
-}
-
-function renderProfileUi() {
-  updateAccountButtonLabel()
-  populateConnectionProviderOptions(String(profileConnectionProviderSelect?.value || 'ebay'))
-  toggleCustomProviderRow()
-  populateConnectionAuthTypeOptions()
-
-  const isLoggedIn = Boolean(authState?.user)
-  if (profileAuthPanel) profileAuthPanel.style.display = isLoggedIn ? 'none' : 'grid'
-  if (profileWorkspace) profileWorkspace.style.display = isLoggedIn ? 'grid' : 'none'
-
-  if (!isLoggedIn) {
-    renderConnectionsList()
-    showProfileStatus('Create a CardPilot HQ account or sign in to manage connections.')
-    return
-  }
-
-  if (profileAccountSummary) {
-    profileAccountSummary.innerHTML = `
-      <div><strong>Email:</strong> ${escapeHtml(authState.user.email || '')}</div>
-      <div><strong>Member Since:</strong> ${escapeHtml(formatProfileDate(authState.user.createdAt))}</div>
-      <div><strong>Last Login:</strong> ${escapeHtml(formatProfileDate(authState.user.lastLoginAt || authState.session?.createdAt))}</div>
-      <div><strong>Session Expires:</strong> ${escapeHtml(formatProfileDate(authState.session?.expiresAt))}</div>
-    `
-  }
-
-  if (profileDisplayNameInput) {
-    profileDisplayNameInput.value = authState.user.displayName || ''
-  }
-
-  renderConnectionsList()
-  if (!editingConnectionProviderSlug) {
-    resetConnectionForm('ebay')
-  }
-
-  showProfileStatus(`Signed in as ${authState.user.displayName || authState.user.email}.`)
-}
-
-async function fetchBackend(endpoint, options = {}) {
-  const backendUrl = await getBackendUrl()
-  const headers = new Headers(options.headers || {})
-  if (authToken) {
-    headers.set('Authorization', `Bearer ${authToken}`)
-  }
-
-  return fetch(`${backendUrl}${endpoint}`, {
-    ...options,
-    headers
-  })
-}
-
-async function authApiFetch(endpoint, options = {}, { allowUnauthorized = false } = {}) {
-  const backendUrl = await getBackendUrl()
-  const headers = new Headers(options.headers || {})
-  if (!headers.has('Content-Type') && options.body && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json')
-  }
-  if (authToken) {
-    headers.set('Authorization', `Bearer ${authToken}`)
-  }
-
-  const response = await fetch(`${backendUrl}${endpoint}`, {
-    ...options,
-    headers
-  })
-
-  let data = null
-  try {
-    data = await response.json()
-  } catch {
-    data = null
-  }
-
-  if (response.status === 401 && !allowUnauthorized) {
-    persistAuthToken('')
-    authState = {
-      user: null,
-      session: null,
-      connections: [],
-      providers: cloneProviderCatalog()
-    }
-    renderProfileUi()
-  }
-
-  return { response, data }
-}
-
-function applyAuthPayload(data) {
-  if (data?.token) {
-    persistAuthToken(data.token)
-  }
-
-  authState = {
-    user: data?.user || null,
-    session: data?.session || (data?.expiresAt ? { expiresAt: data.expiresAt } : null),
-    connections: Array.isArray(data?.connections) ? data.connections : [],
-    providers: Array.isArray(data?.providers) && data.providers.length
-      ? data.providers
-      : cloneProviderCatalog()
-  }
-  editingConnectionProviderSlug = ''
-  renderProfileUi()
-}
-
-async function ensureAuthProviders() {
-  try {
-    const { response, data } = await authApiFetch('/auth/providers', { method: 'GET' }, { allowUnauthorized: true })
-    if (response.ok && Array.isArray(data?.providers) && data.providers.length) {
-      authState.providers = data.providers
-      if (!authState.user) renderProfileUi()
-    }
-  } catch (err) {
-    console.warn('Could not load auth provider catalog', err)
-  }
-}
-
-async function loadCurrentUserSession({ quiet = false } = {}) {
-  authToken = getStoredAuthToken()
-  if (!authToken) {
-    renderProfileUi()
-    return false
-  }
-
-  try {
-    const { response, data } = await authApiFetch('/auth/me', { method: 'GET' }, { allowUnauthorized: true })
-    if (!response.ok || !data?.user) {
-      persistAuthToken('')
-      authState = {
-        user: null,
-        session: null,
-        connections: [],
-        providers: cloneProviderCatalog()
-      }
-      renderProfileUi()
-      if (!quiet) showProfileStatus('Your session expired. Sign in again to manage your profile.', true)
-      return false
-    }
-
-    applyAuthPayload(data)
-    applyOAuthReturnContext()
-    return true
-  } catch (err) {
-    if (!quiet) showProfileStatus(`Could not load your profile: ${err.message || 'Unknown error'}`, true)
-    return false
-  }
-}
-
-async function submitSignup() {
-  try {
-    showProfileStatus('Creating your CardPilot HQ account...')
-    const payload = {
-      displayName: signupDisplayNameInput?.value || '',
-      email: signupEmailInput?.value || '',
-      password: signupPasswordInput?.value || ''
-    }
-    const { response, data } = await authApiFetch('/auth/signup', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    }, { allowUnauthorized: true })
-
-    if (!response.ok) {
-      throw new Error(data?.error || 'Could not create account.')
-    }
-
-    if (signupPasswordInput) signupPasswordInput.value = ''
-    if (loginPasswordInput) loginPasswordInput.value = ''
-    applyAuthPayload(data)
-  } catch (err) {
-    showProfileStatus(err.message || 'Could not create account.', true)
-  }
-}
-
-async function submitLogin() {
-  try {
-    showProfileStatus('Signing in...')
-    const payload = {
-      email: loginEmailInput?.value || '',
-      password: loginPasswordInput?.value || ''
-    }
-    const { response, data } = await authApiFetch('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    }, { allowUnauthorized: true })
-
-    if (!response.ok) {
-      throw new Error(data?.error || 'Could not sign in.')
-    }
-
-    if (loginPasswordInput) loginPasswordInput.value = ''
-    if (signupPasswordInput) signupPasswordInput.value = ''
-    applyAuthPayload(data)
-  } catch (err) {
-    showProfileStatus(err.message || 'Could not sign in.', true)
-  }
-}
-
-async function saveProfileSettings() {
-  if (!authState?.user) {
-    showProfileStatus('Sign in first to update your profile.', true)
-    return
-  }
-
-  try {
-    showProfileStatus('Saving profile changes...')
-    const { response, data } = await authApiFetch('/auth/profile', {
-      method: 'PUT',
-      body: JSON.stringify({ displayName: profileDisplayNameInput?.value || '' })
-    })
-    if (!response.ok) {
-      throw new Error(data?.error || 'Could not save profile.')
-    }
-    applyAuthPayload({ ...authState, ...data })
-    showProfileStatus('Profile saved.')
-  } catch (err) {
-    showProfileStatus(err.message || 'Could not save profile.', true)
-  }
-}
-
-async function saveConnectionSettings() {
-  if (!authState?.user) {
-    showProfileStatus('Sign in first to manage connections.', true)
-    return
-  }
-
-  const providerKey = String(profileConnectionProviderSelect?.value || '').trim().toLowerCase()
-  const customProviderName = String(profileCustomProviderInput?.value || '').trim()
-
-  if (providerKey === 'other' && !customProviderName) {
-    showProfileStatus('Custom provider name is required for Other connections.', true)
-    return
-  }
-
-  try {
-    showProfileStatus('Saving connection...')
-    const payload = {
-      customProviderName,
-      capability: profileConnectionCapabilitySelect?.value || 'research',
-      status: profileConnectionStatusSelect?.value || 'planned',
-      authType: profileConnectionAuthTypeSelect?.value || 'manual',
-      accountLabel: profileConnectionAccountLabelInput?.value || '',
-      notes: profileConnectionNotesInput?.value || '',
-      metadata: {
-        directAuthReady: Boolean(getProviderTemplate(providerKey)?.supportsDirectAuth)
-      }
-    }
-    const { response, data } = await authApiFetch(`/auth/connections/${encodeURIComponent(providerKey)}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload)
-    })
-    if (!response.ok) {
-      throw new Error(data?.error || 'Could not save connection.')
-    }
-
-    authState = {
-      ...authState,
-      connections: Array.isArray(data?.connections) ? data.connections : authState.connections
-    }
-    editingConnectionProviderSlug = String(data?.connection?.providerSlug || '')
-    renderProfileUi()
-    if (editingConnectionProviderSlug) loadConnectionIntoForm(editingConnectionProviderSlug)
-    showProfileStatus('Connection saved.')
-  } catch (err) {
-    showProfileStatus(err.message || 'Could not save connection.', true)
-  }
-}
-
-async function beginEbayOAuthFlow() {
-  if (!authState?.user) {
-    showProfileStatus('Sign in first to connect your eBay account.', true)
-    return
-  }
-
-  try {
-    showProfileStatus('Preparing eBay OAuth...')
-    const returnPath = '/?page=profile'
-    const { response, data } = await authApiFetch(`/auth/ebay/start?returnPath=${encodeURIComponent(returnPath)}`, {
-      method: 'GET'
-    })
-
-    if (!response.ok || !data?.authUrl) {
-      const missing = Array.isArray(data?.missing) && data.missing.length
-        ? ` Missing: ${data.missing.join(', ')}`
-        : ''
-      throw new Error((data?.error || 'Could not start eBay OAuth.') + missing)
-    }
-
-    window.location.assign(data.authUrl)
-  } catch (err) {
-    showProfileStatus(err.message || 'Could not start eBay OAuth.', true)
-  }
-}
-
-async function logoutCurrentUser() {
-  try {
-    if (authToken) {
-      await authApiFetch('/auth/logout', { method: 'POST' }, { allowUnauthorized: true })
-    }
-  } catch (err) {
-    console.warn('Logout request failed', err)
-  }
-
-  persistAuthToken('')
-  authState = {
-    user: null,
-    session: null,
-    connections: [],
-    providers: cloneProviderCatalog()
-  }
-  resetConnectionForm('ebay')
-  renderProfileUi()
-  showProfileStatus('Signed out.')
 }
 
 function getListingUiControls() {
@@ -1081,25 +429,10 @@ function resolveEstimatedUnitValue(pricing = {}) {
   return null
 }
 
-function resolveAverageCompValue(estimate = null) {
-  const avg = parsePriceNumber(estimate?.avg)
-  if (avg !== null) return avg
-  const median = parsePriceNumber(estimate?.median)
-  if (median !== null) return median
-  return null
-}
-
-function resolveMedianCompValue(estimate = null) {
-  const median = parsePriceNumber(estimate?.median)
-  if (median !== null) return median
-  return resolveAverageCompValue(estimate)
-}
-
 function resolvePricingDisplay(pricing = {}, estimate = null) {
-  const avgFallbackValue = resolveAverageCompValue(estimate)
-  const medianFallbackValue = resolveMedianCompValue(estimate)
-  const avgFallback = avgFallbackValue !== null ? avgFallbackValue.toFixed(2) : ''
-  const medianFallback = medianFallbackValue !== null ? medianFallbackValue.toFixed(2) : ''
+  const fallback = estimate && Number.isFinite(Number(estimate.median))
+    ? Number(estimate.median).toFixed(2)
+    : ''
 
   const source = cleanStaleInventoryHint(String(pricing.source || '').trim())
   const isPlaceholderFallback = source === 'fallback_default' || source === 'no_comps'
@@ -1109,8 +442,8 @@ function resolvePricingDisplay(pricing = {}, estimate = null) {
   return {
     purchasePrice: String(pricing.purchasePrice || '').trim(),
     listingPrice: String(pricing.listingPrice || '').trim(),
-    lastSale: resolvedLastSale || medianFallback,
-    estimatedUnitValue: resolvedEstimatedUnitValue || avgFallback,
+    lastSale: resolvedLastSale || fallback,
+    estimatedUnitValue: resolvedEstimatedUnitValue || fallback,
     source: source || (estimate?.query ? `Auto: ${estimate.query}` : '')
   }
 }
@@ -1286,46 +619,9 @@ async function refreshPricingEstimates(items = inventoryRowsCache, { force = fal
       }
     })
 
-    const pricingById = getPricingState()
-    let pricingUpdated = 0
-    grouped.forEach((item) => {
-      const pricingKey = String(item?.pricingKey || '')
-      if (!pricingKey) return
-
-      const estimate = pricingEstimateByFingerprint[pricingKey]
-      const avgCompValue = resolveAverageCompValue(estimate)
-      if (avgCompValue === null) return
-
-      const existing = pricingById[pricingKey] || {}
-      const hasManualUnitValue = parsePriceNumber(existing.estimatedUnitValue) !== null
-      const isAutoManaged = String(existing.source || '').toLowerCase().startsWith('auto:')
-      if (hasManualUnitValue && !isAutoManaged && !force) return
-
-      const medianCompValue = resolveMedianCompValue(estimate)
-      const countText = Number(estimate?.count || 0) > 0 ? `${Number(estimate.count)} sold comps` : 'sold comps unavailable'
-      const sourceSystem = String(estimate?.source || '').trim() || 'market'
-      const next = {
-        ...existing,
-        estimatedUnitValue: avgCompValue.toFixed(2),
-        source: `Auto: ${sourceSystem} avg (${countText})`,
-        notes: String(existing.notes || '').trim()
-      }
-
-      if (parsePriceNumber(existing.lastSale) === null && medianCompValue !== null) {
-        next.lastSale = medianCompValue.toFixed(2)
-      }
-
-      pricingById[pricingKey] = next
-      pricingUpdated += 1
-    })
-
-    if (pricingUpdated > 0) {
-      setPricingState(pricingById)
-    }
-
     setPricingEstimateState(pricingEstimateByFingerprint)
     renderPricingTable(items)
-    showPricingStatus(`Updated market estimates for ${estimates.length} card profile(s); auto-filled Unit Value on ${pricingUpdated} row(s).`)
+    showPricingStatus(`Updated market estimates for ${estimates.length} card profile(s).`)
   } catch (err) {
     renderPricingTable(items)
     showPricingStatus(`Market estimate refresh failed: ${err.message || 'Unknown error'}`, true)
@@ -2235,14 +1531,14 @@ function restoreScanDraftSnapshot() {
 }
 
 function setActivePage(page) {
-  const safePage = (page === 'scan' || page === 'inventory' || page === 'pricing' || page === 'listings' || page === 'profile' || page === 'home') ? page : 'home'
-  const pages = [homePage, scanPage, inventoryPage, pricingPage, listingsPage, profilePage]
+  const safePage = (page === 'scan' || page === 'inventory' || page === 'pricing' || page === 'listings' || page === 'home') ? page : 'home'
+  const pages = [homePage, scanPage, inventoryPage, pricingPage, listingsPage]
   pages.forEach((el) => {
     if (!el) return
     el.classList.remove('active')
   })
 
-  const navButtons = [navHomeBtn, navScanBtn, navInventoryBtn, navPricingBtn, navListingsBtn, navProfileBtn]
+  const navButtons = [navHomeBtn, navScanBtn, navInventoryBtn, navPricingBtn, navListingsBtn]
   navButtons.forEach((el) => el?.classList.remove('active'))
 
   if (safePage === 'scan') {
@@ -2258,11 +1554,6 @@ function setActivePage(page) {
   } else if (safePage === 'listings') {
     listingsPage?.classList.add('active')
     navListingsBtn?.classList.add('active')
-  } else if (safePage === 'profile') {
-    profilePage?.classList.add('active')
-    navProfileBtn?.classList.add('active')
-    ensureAuthProviders().catch(() => {})
-    loadCurrentUserSession({ quiet: true }).catch(() => {})
   } else {
     homePage?.classList.add('active')
     navHomeBtn?.classList.add('active')
@@ -2276,11 +1567,6 @@ function setActivePage(page) {
 }
 
 function getInitialActivePage() {
-  const urlContext = getUrlContext()
-  if (urlContext.page === 'scan' || urlContext.page === 'inventory' || urlContext.page === 'pricing' || urlContext.page === 'listings' || urlContext.page === 'profile' || urlContext.page === 'home') {
-    return urlContext.page
-  }
-
   try {
     const importInProgress = sessionStorage.getItem(IMPORT_IN_PROGRESS_KEY) === '1'
     if (importInProgress) {
@@ -2293,7 +1579,7 @@ function getInitialActivePage() {
 
   try {
     const savedPage = String(localStorage.getItem(ACTIVE_PAGE_KEY) || '').trim().toLowerCase()
-    if (savedPage === 'scan' || savedPage === 'inventory' || savedPage === 'pricing' || savedPage === 'listings' || savedPage === 'profile' || savedPage === 'home') {
+    if (savedPage === 'scan' || savedPage === 'inventory' || savedPage === 'pricing' || savedPage === 'listings' || savedPage === 'home') {
       return savedPage
     }
   } catch {
@@ -2309,7 +1595,8 @@ async function loadInventory() {
 
   try {
     const sport = encodeURIComponent(activeSport())
-    const res = await fetchBackend(`/inventory?sport=${sport}`)
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/inventory?sport=${sport}`)
     const data = await res.json()
     const items = Array.isArray(data?.items) ? data.items : []
     inventoryRowsCache = items
@@ -2379,7 +1666,8 @@ async function openPricingAndAnalyze() {
 
 async function updateInventoryRow(id, payload) {
   try {
-    const res = await fetchBackend(`/inventory/${encodeURIComponent(id)}`, {
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/inventory/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -2403,7 +1691,8 @@ async function deleteInventoryRow(id) {
   if (!confirmed) return
 
   try {
-    const res = await fetchBackend(`/inventory/${encodeURIComponent(id)}`, {
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/inventory/${encodeURIComponent(id)}`, {
       method: 'DELETE'
     })
 
@@ -2439,8 +1728,9 @@ async function clearInventory(mode) {
   if (!confirmed) return
 
   try {
+    const backendUrl = await getBackendUrl()
     const qs = isAll ? 'all=true' : `sport=${encodeURIComponent(sport)}`
-    const res = await fetchBackend(`/inventory?${qs}`, { method: 'DELETE' })
+    const res = await fetch(`${backendUrl}/inventory?${qs}`, { method: 'DELETE' })
 
     let data = null
     let rawText = ''
@@ -2475,19 +1765,20 @@ async function loadListingTemplates() {
   if (listingTemplatesLoaded) return
 
   try {
-    const res = await fetchBackend('/catalog/templates')
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/catalog/templates`)
     const data = await res.json()
     const items = Array.isArray(data?.items) ? data.items : []
 
     const selects = [listingTemplateSelect, listingsListingTemplateSelect].filter(Boolean)
 
     if (!items.length) {
-      const option = document.createElement('option')
-      option.value = ''
-      option.textContent = 'No templates found'
       selects.forEach((select) => {
         select.innerHTML = ''
-        select.appendChild(option.cloneNode(true))
+        const option = document.createElement('option')
+        option.value = ''
+        option.textContent = 'No templates found'
+        select.appendChild(option)
       })
       return
     }
@@ -2545,7 +1836,8 @@ async function buildListingDraftFromInventory() {
 
   try {
     controls.draftOutput.textContent = 'Building draft...'
-    const res = await fetchBackend('/catalog/listing-draft', {
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/catalog/listing-draft`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -2602,7 +1894,8 @@ async function submitListingDraftToStorefront() {
 
   try {
     controls.draftOutput.textContent = 'Preparing submit dry run...'
-    const res = await fetchBackend('/catalog/listing-draft', {
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/catalog/listing-draft`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -2655,7 +1948,8 @@ function cancelListingDraftBuild() {
 async function verifyEbayFieldCoverage() {
   try {
     const sport = encodeURIComponent(activeSport())
-    const res = await fetchBackend(`/inventory/ebay/coverage?sport=${sport}`)
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/inventory/ebay/coverage?sport=${sport}`)
     const data = await res.json()
 
     if (!res.ok) {
@@ -2681,7 +1975,8 @@ async function verifyEbayFieldCoverage() {
 async function exportInventoryEbayCsv() {
   try {
     const sport = encodeURIComponent(activeSport())
-    const res = await fetchBackend(`/inventory/export/ebay-template.csv?sport=${sport}`)
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/inventory/export/ebay-template.csv?sport=${sport}`)
 
     if (!res.ok) {
       let errorText = 'Failed to export eBay CSV'
@@ -2730,7 +2025,8 @@ async function saveCurrentRowsToInventory() {
       cards: rows.map((row) => collectRowData(row))
     }
 
-    const res = await fetchBackend('/inventory/bulk', {
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/inventory/bulk`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -2802,16 +2098,6 @@ function initAppNavigation() {
     await loadListingTemplates()
     await loadInventory()
   })
-  navProfileBtn?.addEventListener('click', async () => {
-    setActivePage('profile')
-    await ensureAuthProviders()
-    await loadCurrentUserSession({ quiet: true })
-  })
-  accountProfileBtn?.addEventListener('click', async () => {
-    setActivePage('profile')
-    await ensureAuthProviders()
-    await loadCurrentUserSession({ quiet: true })
-  })
 
   homeGoScanBtn?.addEventListener('click', () => setActivePage('scan'))
   homeGoInventoryBtn?.addEventListener('click', async () => {
@@ -2877,31 +2163,6 @@ function initAppNavigation() {
   closeFeedbackModal?.addEventListener('click', closeFeedbackDialog)
   cancelFeedbackBtn?.addEventListener('click', closeFeedbackDialog)
   submitFeedbackBtn?.addEventListener('click', submitFeedbackReport)
-  signupSubmitBtn?.addEventListener('click', submitSignup)
-  loginSubmitBtn?.addEventListener('click', submitLogin)
-  saveProfileBtn?.addEventListener('click', saveProfileSettings)
-  logoutBtn?.addEventListener('click', logoutCurrentUser)
-  saveConnectionBtn?.addEventListener('click', saveConnectionSettings)
-  resetConnectionFormBtn?.addEventListener('click', () => {
-    resetConnectionForm(String(profileConnectionProviderSelect?.value || 'ebay'))
-    showProfileStatus('Connection form reset.')
-  })
-  profileConnectionProviderSelect?.addEventListener('change', () => {
-    editingConnectionProviderSlug = ''
-    toggleCustomProviderRow()
-    populateConnectionAuthTypeOptions()
-  })
-  profileCustomProviderInput?.addEventListener('input', () => {
-    if (editingConnectionProviderSlug && String(profileConnectionProviderSelect?.value || '') === 'other') {
-      editingConnectionProviderSlug = currentConnectionFormSlug()
-    }
-  })
-  signupPasswordInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') submitSignup()
-  })
-  loginPasswordInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') submitLogin()
-  })
 
   document.addEventListener('click', (event) => {
     if (!helpMenuDropdown?.classList.contains('active')) return
@@ -2911,7 +2172,6 @@ function initAppNavigation() {
   })
 
   setActivePage(getInitialActivePage())
-  renderProfileUi()
   initializeAppBadge()
 }
 
@@ -2925,13 +2185,13 @@ function parseSkuNumber(value) {
 }
 
 function getCommittedSkuCounter() {
-  const value = Number(localStorage.getItem(scopedStorageKey(SKU_COMMITTED_COUNTER_KEY)) || '0')
+  const value = Number(localStorage.getItem(SKU_COMMITTED_COUNTER_KEY) || '0')
   return Number.isFinite(value) ? Math.max(0, value) : 0
 }
 
 function setCommittedSkuCounter(value) {
   const safe = Math.max(0, Math.round(Number(value) || 0))
-  localStorage.setItem(scopedStorageKey(SKU_COMMITTED_COUNTER_KEY), String(safe))
+  localStorage.setItem(SKU_COMMITTED_COUNTER_KEY, String(safe))
 }
 
 function getMaxSkuFromCurrentTable() {
@@ -2962,7 +2222,8 @@ function endSkuSession() {
 
 async function refreshCommittedSkuCounterFromInventory() {
   try {
-    const res = await fetchBackend('/inventory')
+    const backendUrl = await getBackendUrl()
+    const res = await fetch(`${backendUrl}/inventory`)
     if (!res.ok) return
     const data = await res.json()
     const items = Array.isArray(data?.items) ? data.items : []
@@ -3330,8 +2591,6 @@ async function checkAiConfig() {
 // Check AI config on load
 getBackendUrl().then(() => checkAiConfig()).catch(() => {})
 initAppNavigation()
-ensureAuthProviders().catch(() => {})
-loadCurrentUserSession({ quiet: true }).catch(() => {})
 loadCatalogSetOptions().catch(() => {})
 loadListingTemplates().catch(() => {})
 loadInventory().catch(() => {})

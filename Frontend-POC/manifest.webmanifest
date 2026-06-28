@@ -6,12 +6,5 @@
   "background_color": "#f5f7fa",
   "theme_color": "#667eea",
   "description": "CardPilot HQ helps you scan, organize, and prepare trading cards for inventory and listings.",
-  "icons": [
-    {
-      "src": "favicon.svg",
-      "sizes": "64x64",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
-  ]
+  "icons": []
 }

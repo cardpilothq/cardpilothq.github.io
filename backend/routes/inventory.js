@@ -3,11 +3,16 @@ import { randomUUID } from 'crypto'
 import sqlite3 from 'sqlite3'
 import fs from 'fs/promises'
 import path from 'path'
+import axios from 'axios'
+import { getUserContextFromToken } from '../services/authService.js'
 
 const router = express.Router()
 const dataDir = path.join(process.cwd(), 'data')
 const sqlitePath = path.join(dataDir, 'inventory.db')
 const legacyJsonPath = path.join(dataDir, 'inventory.json')
+const PRICING_CACHE_TTL_MS = 1000 * 60 * 60 * 12 // 12 hours
+const pricingEstimateCache = new Map()
+const EBAY_APP_ID = String(process.env.EBAY_APP_ID || process.env.EBAY_CLIENT_ID || '').trim()
 
 let db = null
 let initPromise = null
@@ -107,6 +112,32 @@ function openDatabase() {
   })
 }
 
+function extractBearerToken(req) {
+  const header = String(req.headers.authorization || '').trim()
+  if (header.toLowerCase().startsWith('bearer ')) {
+    return header.slice(7).trim()
+  }
+  return ''
+}
+
+async function resolveInventoryOwnerUserId(req) {
+  const token = extractBearerToken(req)
+  if (!token) return null
+  try {
+    const context = await getUserContextFromToken(token)
+    return String(context?.user?.id || '').trim() || null
+  } catch (err) {
+    console.warn('Could not resolve inventory auth context:', err?.message || err)
+    return null
+  }
+}
+
+function ownerWhereClause(ownerUserId) {
+  return ownerUserId
+    ? { clause: 'ownerUserId = ?', params: [ownerUserId] }
+    : { clause: 'ownerUserId IS NULL', params: [] }
+}
+
 async function readLegacyJsonRecords() {
   try {
     await fs.access(legacyJsonPath)
@@ -137,6 +168,7 @@ async function initializeDatabase() {
     await dbRun(`
       CREATE TABLE IF NOT EXISTS inventory (
         id TEXT PRIMARY KEY,
+        ownerUserId TEXT,
         sport TEXT NOT NULL,
         sportNormalized TEXT NOT NULL,
         fingerprint TEXT NOT NULL,
@@ -163,8 +195,16 @@ async function initializeDatabase() {
       )
     `)
 
+    try {
+      await dbRun('ALTER TABLE inventory ADD COLUMN ownerUserId TEXT')
+    } catch {
+      // Column already exists.
+    }
+
     await dbRun('CREATE INDEX IF NOT EXISTS idx_inventory_sport ON inventory (sportNormalized)')
-    await dbRun('CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_fingerprint ON inventory (fingerprint)')
+    await dbRun('CREATE INDEX IF NOT EXISTS idx_inventory_owner ON inventory (ownerUserId)')
+    await dbRun('DROP INDEX IF EXISTS idx_inventory_fingerprint')
+    await dbRun("CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_owner_fingerprint ON inventory (ifnull(ownerUserId, ''), fingerprint)")
 
     const row = await dbGet('SELECT COUNT(1) AS count FROM inventory')
     const existingCount = Number(row?.count || 0)
@@ -200,6 +240,277 @@ function normalize(value) {
     .trim()
 }
 
+function pricingFingerprint(item) {
+  return [
+    normalize(item?.sport),
+    normalize(item?.name),
+    normalize(item?.team),
+    normalize(item?.set),
+    normalize(item?.year),
+    normalize(item?.cardNumber),
+    normalize(item?.parallel)
+  ].join('|')
+}
+
+function buildMarketQuery(item) {
+  const parts = [
+    item?.year,
+    item?.set,
+    item?.name,
+    item?.cardNumber ? `#${item.cardNumber}` : '',
+    item?.parallel,
+    item?.team
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+  return parts.join(' ')
+}
+
+function buildMarketLinks(query) {
+  const encoded = encodeURIComponent(String(query || '').trim())
+  return {
+    ebaySold: `https://www.ebay.com/sch/i.html?_nkw=${encoded}&LH_Sold=1&LH_Complete=1`,
+    oneThirtyPoint: `https://www.google.com/search?q=${encodeURIComponent(`site:130point.com/sales ${String(query || '').trim()}`)}`,
+    priceCharting: `https://www.pricecharting.com/search-products?type=prices&q=${encoded}`,
+    photoAppraiser: 'https://www.pricecharting.com/photo-appraiser'
+  }
+}
+
+function extractSoldPricesFromHtml(html) {
+  const values = []
+  const text = String(html || '')
+
+  const spanRegex = /<span[^>]*class="[^"]*s-item__price[^"]*"[^>]*>([\s\S]*?)<\/span>/gi
+  let match
+  while ((match = spanRegex.exec(text)) !== null) {
+    const cleaned = String(match[1] || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').trim()
+    const numMatch = cleaned.match(/\$\s*([0-9,]+(?:\.[0-9]{2})?)/)
+    if (!numMatch) continue
+    const parsed = Number(String(numMatch[1]).replace(/,/g, ''))
+    if (Number.isFinite(parsed) && parsed > 0) values.push(parsed)
+    if (values.length >= 24) break
+  }
+
+  if (values.length >= 3) return values
+
+  const genericRegex = /\$\s*([0-9,]+(?:\.[0-9]{2})?)/g
+  while ((match = genericRegex.exec(text)) !== null) {
+    const parsed = Number(String(match[1]).replace(/,/g, ''))
+    if (!Number.isFinite(parsed)) continue
+    if (parsed <= 0 || parsed > 25000) continue
+    values.push(parsed)
+    if (values.length >= 24) break
+  }
+
+  return values
+}
+
+function summarizePrices(prices) {
+  const clean = Array.isArray(prices)
+    ? prices.filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b)
+    : []
+  if (!clean.length) return { count: 0, median: null, avg: null, min: null, max: null }
+
+  const count = clean.length
+  const mid = Math.floor(count / 2)
+  const median = count % 2 === 0 ? (clean[mid - 1] + clean[mid]) / 2 : clean[mid]
+  const sum = clean.reduce((acc, n) => acc + n, 0)
+  const avg = sum / count
+  return {
+    count,
+    median,
+    avg,
+    min: clean[0],
+    max: clean[count - 1]
+  }
+}
+
+function extractEbayApiPrices(payload) {
+  const root = payload?.findCompletedItemsResponse?.[0]
+  const resultSet = root?.searchResult?.[0]
+  const items = Array.isArray(resultSet?.item) ? resultSet.item : []
+
+  const prices = []
+  items.forEach((item) => {
+    const sellingStatus = item?.sellingStatus?.[0]
+    const priceNode = sellingStatus?.convertedCurrentPrice?.[0] || sellingStatus?.currentPrice?.[0]
+    const raw = priceNode?.__value__
+    const n = Number(raw)
+    if (Number.isFinite(n) && n > 0) prices.push(n)
+  })
+
+  return prices
+}
+
+async function estimateFromEbayFindingApi(query) {
+  if (!EBAY_APP_ID) {
+    throw new Error('EBAY_APP_ID not configured')
+  }
+
+  const url = 'https://svcs.ebay.com/services/search/FindingService/v1'
+  const params = {
+    'OPERATION-NAME': 'findCompletedItems',
+    'SERVICE-VERSION': '1.13.0',
+    'SECURITY-APPNAME': EBAY_APP_ID,
+    'RESPONSE-DATA-FORMAT': 'JSON',
+    'REST-PAYLOAD': 'true',
+    keywords: query,
+    'itemFilter(0).name': 'SoldItemsOnly',
+    'itemFilter(0).value': 'true',
+    'sortOrder': 'EndTimeSoonest',
+    'paginationInput.entriesPerPage': '24'
+  }
+
+  const res = await axios.get(url, {
+    timeout: 15000,
+    params,
+    headers: {
+      'X-EBAY-SOA-SECURITY-APPNAME': EBAY_APP_ID
+    }
+  })
+
+  const prices = extractEbayApiPrices(res.data)
+  const summary = summarizePrices(prices)
+  return {
+    query,
+    links: buildMarketLinks(query),
+    samplePrices: prices.slice(0, 10),
+    ...summary
+  }
+}
+
+async function estimateFromEbaySold(query) {
+  const links = buildMarketLinks(query)
+  const res = await axios.get(links.ebaySold, {
+    timeout: 15000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9'
+    }
+  })
+
+  const prices = extractSoldPricesFromHtml(res.data)
+  const summary = summarizePrices(prices)
+  return {
+    query,
+    links,
+    samplePrices: prices.slice(0, 10),
+    ...summary
+  }
+}
+
+async function estimateFromPriceCharting(query) {
+  const links = buildMarketLinks(query)
+  const res = await axios.get(links.priceCharting, {
+    timeout: 15000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9'
+    }
+  })
+
+  const html = String(res.data || '')
+  const prices = []
+  const regex = /\$\s*([0-9,]+(?:\.[0-9]{2})?)/g
+  let match
+  while ((match = regex.exec(html)) !== null) {
+    const parsed = Number(String(match[1]).replace(/,/g, ''))
+    if (!Number.isFinite(parsed)) continue
+    if (parsed <= 0 || parsed > 25000) continue
+    prices.push(parsed)
+    if (prices.length >= 30) break
+  }
+
+  const summary = summarizePrices(prices)
+  return {
+    query,
+    links,
+    samplePrices: prices.slice(0, 10),
+    ...summary
+  }
+}
+
+async function getCachedEstimate(item) {
+  const query = buildMarketQuery(item)
+  const fingerprintKey = pricingFingerprint(item)
+  if (!query || !fingerprintKey) {
+    return {
+      fingerprint: fingerprintKey,
+      query,
+      links: query ? buildMarketLinks(query) : null,
+      count: 0,
+      median: null,
+      avg: null,
+      min: null,
+      max: null,
+      samplePrices: [],
+      fromCache: false
+    }
+  }
+
+  const cached = pricingEstimateCache.get(fingerprintKey)
+  if (cached && (Date.now() - cached.updatedAt) < PRICING_CACHE_TTL_MS) {
+    return { ...cached.value, fromCache: true }
+  }
+
+  let estimated = null
+  let source = 'ebay_api'
+  const errors = []
+
+  try {
+    estimated = await estimateFromEbayFindingApi(query)
+    source = 'ebay_api'
+  } catch (err) {
+    errors.push(`eBay API: ${err.message || 'failed'}`)
+  }
+
+  if (!estimated?.count) {
+    try {
+      estimated = await estimateFromEbaySold(query)
+      if (estimated?.count) source = 'ebay_scrape'
+    } catch (err) {
+      errors.push(`eBay scrape: ${err.message || 'failed'}`)
+    }
+  }
+
+  if (!estimated?.count) {
+    try {
+      const priceCharting = await estimateFromPriceCharting(query)
+      if (priceCharting?.count) {
+        estimated = priceCharting
+        source = 'pricecharting'
+      }
+    } catch (err) {
+      errors.push(`PriceCharting: ${err.message || 'failed'}`)
+    }
+  }
+
+  if (!estimated || !estimated.count) {
+    estimated = {
+      query,
+      links: buildMarketLinks(query),
+      samplePrices: [],
+      count: 0,
+      median: null,
+      avg: null,
+      min: null,
+      max: null,
+      estimateNote: 'No sold-price comps were retrieved yet.'
+    }
+    source = 'no_comps'
+  }
+
+  const value = {
+    fingerprint: fingerprintKey,
+    ...estimated,
+    source,
+    error: errors.length ? errors.join(' | ') : undefined,
+    updatedAt: new Date().toISOString()
+  }
+  pricingEstimateCache.set(fingerprintKey, { updatedAt: Date.now(), value })
+  return { ...value, fromCache: false }
+}
+
 function csvEscape(value) {
   const text = String(value ?? '')
   if (text.includes('"') || text.includes(',') || text.includes('\n')) {
@@ -226,10 +537,11 @@ function safeInt(value, fallback = 1) {
   return Math.max(1, Math.round(n))
 }
 
-function toRecord(card, sport, importAttemptId) {
+function toRecord(card, sport, importAttemptId, ownerUserId = null) {
   const now = new Date().toISOString()
   const record = {
     id: randomUUID(),
+    ownerUserId,
     sport,
     sportNormalized: normalize(sport),
     fingerprint: '',
@@ -279,12 +591,12 @@ function mergeMissingStrings(target, source, keys) {
 async function insertInventoryRow(record) {
   await dbRun(
     `INSERT INTO inventory (
-      id, sport, sportNormalized, fingerprint, pairType, sku, name, team, position, setName, year,
+      id, ownerUserId, sport, sportNormalized, fingerprint, pairType, sku, name, team, position, setName, year,
       cardNumber, quantity, parallel, rookie, autograph, title, description, pickFrom, filename,
       pictureUrl, lastImportAttemptId, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      record.id, record.sport, record.sportNormalized, record.fingerprint, record.pairType, record.sku,
+      record.id, record.ownerUserId || null, record.sport, record.sportNormalized, record.fingerprint, record.pairType, record.sku,
       record.name, record.team, record.position, record.set, record.year, record.cardNumber, safeInt(record.quantity, 1),
       record.parallel, record.rookie, record.autograph, record.title, record.description, record.pickFrom,
       record.filename, record.pictureUrl, record.lastImportAttemptId, record.createdAt, record.updatedAt
@@ -327,6 +639,24 @@ async function listInventory(sportFilter = '') {
     ? await dbAll('SELECT * FROM inventory WHERE sportNormalized = ? ORDER BY updatedAt DESC', [normalizedSport])
     : await dbAll('SELECT * FROM inventory ORDER BY updatedAt DESC')
 
+  return rows.map(rowToInventoryItem)
+}
+
+async function listInventoryForOwner(ownerUserId, sportFilter = '') {
+  await initializeDatabase()
+
+  const normalizedSport = normalize(sportFilter)
+  const ownerScope = ownerWhereClause(ownerUserId)
+  const params = [...ownerScope.params]
+  let sql = `SELECT * FROM inventory WHERE ${ownerScope.clause}`
+
+  if (normalizedSport) {
+    sql += ' AND sportNormalized = ?'
+    params.push(normalizedSport)
+  }
+
+  sql += ' ORDER BY updatedAt DESC'
+  const rows = await dbAll(sql, params)
   return rows.map(rowToInventoryItem)
 }
 
@@ -442,7 +772,8 @@ function buildEbayCoverage(items, defaults) {
 
 router.get('/', async (req, res) => {
   try {
-    const items = await listInventory(String(req.query.sport || ''))
+    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const items = await listInventoryForOwner(ownerUserId, String(req.query.sport || ''))
     res.json({ items })
   } catch (err) {
     console.error('Inventory GET failed:', err)
@@ -452,7 +783,8 @@ router.get('/', async (req, res) => {
 
 router.get('/ebay/coverage', async (req, res) => {
   try {
-    const items = await listInventory(String(req.query.sport || ''))
+    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const items = await listInventoryForOwner(ownerUserId, String(req.query.sport || ''))
     const defaults = ebayDefaults(req)
     const coverage = buildEbayCoverage(items, defaults)
     res.json({ ok: true, ...coverage })
@@ -464,7 +796,8 @@ router.get('/ebay/coverage', async (req, res) => {
 
 router.get('/export/ebay-template.csv', async (req, res) => {
   try {
-    const items = await listInventory(String(req.query.sport || ''))
+    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const items = await listInventoryForOwner(ownerUserId, String(req.query.sport || ''))
     const defaults = ebayDefaults(req)
     const csv = buildEbayCsv(items, defaults)
 
@@ -484,14 +817,15 @@ router.get('/export/ebay-template.csv', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await initializeDatabase()
+    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerScope = ownerWhereClause(ownerUserId)
 
     const id = String(req.params?.id || '').trim()
     if (!id) {
       res.status(400).json({ error: 'Missing inventory row id.' })
       return
     }
-
-    const result = await dbRun('DELETE FROM inventory WHERE id = ?', [id])
+  const result = await dbRun(`DELETE FROM inventory WHERE id = ? AND ${ownerScope.clause}`, [id, ...ownerScope.params])
     const deleted = Number(result?.changes || 0)
     res.json({ ok: true, deleted })
   } catch (err) {
@@ -503,14 +837,15 @@ router.delete('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     await initializeDatabase()
+    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerScope = ownerWhereClause(ownerUserId)
 
     const id = String(req.params?.id || '').trim()
     if (!id) {
       res.status(400).json({ error: 'Missing inventory row id.' })
       return
     }
-
-    const existing = await dbGet('SELECT * FROM inventory WHERE id = ?', [id])
+  const existing = await dbGet(`SELECT * FROM inventory WHERE id = ? AND ${ownerScope.clause}`, [id, ...ownerScope.params])
     if (!existing) {
       res.status(404).json({ error: 'Inventory row not found.' })
       return
@@ -547,8 +882,10 @@ router.put('/:id', async (req, res) => {
       normalize(updated.cardNumber),
       normalize(updated.parallel)
     ].join('|')
-
-    const conflict = await dbGet('SELECT id FROM inventory WHERE fingerprint = ? AND id <> ?', [nextFingerprint, id])
+    const conflict = await dbGet(
+      `SELECT id FROM inventory WHERE fingerprint = ? AND id <> ? AND ${ownerScope.clause}`,
+      [nextFingerprint, id, ...ownerScope.params]
+    )
     if (conflict) {
       res.status(409).json({ error: 'Updating this row would duplicate another inventory fingerprint.' })
       return
@@ -587,8 +924,7 @@ router.put('/:id', async (req, res) => {
         id
       ]
     )
-
-    const row = await dbGet('SELECT * FROM inventory WHERE id = ?', [id])
+  const row = await dbGet(`SELECT * FROM inventory WHERE id = ? AND ${ownerScope.clause}`, [id, ...ownerScope.params])
     res.json({ ok: true, item: rowToInventoryItem(row) })
   } catch (err) {
     console.error('Inventory update failed:', err)
@@ -599,20 +935,22 @@ router.put('/:id', async (req, res) => {
 router.delete('/', async (req, res) => {
   try {
     await initializeDatabase()
+    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerScope = ownerWhereClause(ownerUserId)
 
     const clearAll = ['1', 'true', 'yes'].includes(String(req.query?.all || '').toLowerCase())
     const sport = String(req.query?.sport || '').trim()
 
     let result
     if (clearAll) {
-      result = await dbRun('DELETE FROM inventory')
+      result = await dbRun(`DELETE FROM inventory WHERE ${ownerScope.clause}`, ownerScope.params)
     } else {
       const normalizedSport = normalize(sport)
       if (!normalizedSport) {
         res.status(400).json({ error: 'Provide sport query or set all=true.' })
         return
       }
-      result = await dbRun('DELETE FROM inventory WHERE sportNormalized = ?', [normalizedSport])
+      result = await dbRun(`DELETE FROM inventory WHERE ${ownerScope.clause} AND sportNormalized = ?`, [...ownerScope.params, normalizedSport])
     }
 
     const deleted = Number(result?.changes || 0)
@@ -626,6 +964,8 @@ router.delete('/', async (req, res) => {
 router.post('/bulk', async (req, res) => {
   try {
     await initializeDatabase()
+    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerScope = ownerWhereClause(ownerUserId)
 
     const sport = String(req.body?.sport || '').trim() || 'Football'
     const cards = Array.isArray(req.body?.cards) ? req.body.cards : []
@@ -643,8 +983,11 @@ router.post('/bulk', async (req, res) => {
 
     try {
       for (const card of cards) {
-        const incoming = toRecord(card, sport, importAttemptId)
-        const existing = await dbGet('SELECT * FROM inventory WHERE fingerprint = ?', [incoming.fingerprint])
+        const incoming = toRecord(card, sport, importAttemptId, ownerUserId)
+        const existing = await dbGet(
+          `SELECT * FROM inventory WHERE fingerprint = ? AND ${ownerScope.clause}`,
+          [incoming.fingerprint, ...ownerScope.params]
+        )
 
         if (existing) {
           const merged = {
@@ -694,11 +1037,44 @@ router.post('/bulk', async (req, res) => {
       throw err
     }
 
-    const totalRow = await dbGet('SELECT COUNT(1) AS total FROM inventory')
+    const totalRow = await dbGet(`SELECT COUNT(1) AS total FROM inventory WHERE ${ownerScope.clause}`, ownerScope.params)
     res.json({ ok: true, importAttemptId, inserted, updated, total: Number(totalRow?.total || 0) })
   } catch (err) {
     console.error('Inventory bulk save failed:', err)
     res.status(500).json({ error: 'Failed to save inventory.' })
+  }
+})
+
+router.post('/pricing/estimate-batch', async (req, res) => {
+  try {
+    const cards = Array.isArray(req.body?.cards) ? req.body.cards : []
+    if (!cards.length) {
+      res.json({ ok: true, estimates: [] })
+      return
+    }
+
+    const uniqueByFingerprint = new Map()
+    cards.forEach((card) => {
+      const fp = pricingFingerprint(card)
+      if (!fp || uniqueByFingerprint.has(fp)) return
+      uniqueByFingerprint.set(fp, card)
+    })
+
+    const estimates = []
+    for (const card of uniqueByFingerprint.values()) {
+      // Sequential fetch keeps request volume low and avoids rate spikes.
+      const estimate = await getCachedEstimate(card)
+      estimates.push(estimate)
+    }
+
+    res.json({
+      ok: true,
+      ttlMs: PRICING_CACHE_TTL_MS,
+      estimates
+    })
+  } catch (err) {
+    console.error('Pricing estimate batch failed:', err)
+    res.status(500).json({ error: 'Failed to estimate pricing.' })
   }
 })
 

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "start:qa": "set APP_ENV=qa&& set NODE_ENV=production&& set ENV_FILE=.env.qa&& node server.js",
+    "start:poc": "set APP_ENV=poc&& set NODE_ENV=production&& set ENV_FILE=.env.poc&& node server.js",
     "start:prod": "set APP_ENV=prod&& set NODE_ENV=production&& set ENV_FILE=.env.prod&& node server.js",
     "regression:batch": "node scripts/runRegressionBatch.mjs",
     "regression:beta": "node scripts/runRegressionBatch.mjs \"D:/Sport Cards/Scanned from Epson/Football\" --limit=20 --gate=beta",
