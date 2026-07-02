@@ -135,8 +135,16 @@ jobs:
         with:
           ref: ${{ needs.resolve-target.outputs.deploy_ref }}
 
+      - name: Require DEV deployment webhook configuration
+        shell: bash
+        run: |
+          if [[ -z "${DEV_DEPLOY_WEBHOOK_URL}" ]]; then
+            echo "DEV_DEPLOY_WEBHOOK_URL is not configured."
+            echo "Set DEV_DEPLOY_WEBHOOK_URL secret before running DEV deployment promotion." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
       - name: Trigger DEV deployment webhook
-        if: ${{ env.DEV_DEPLOY_WEBHOOK_URL != '' }}
         run: |
           curl -sS -X POST "${DEV_DEPLOY_WEBHOOK_URL}" \
             -H "Content-Type: application/json" \
@@ -171,8 +179,16 @@ jobs:
           name: ${{ needs.build-artifacts.outputs.artifact_name }}
           path: .deployment-bundle
 
+      - name: Require QA deployment webhook configuration
+        shell: bash
+        run: |
+          if [[ -z "${QA_DEPLOY_WEBHOOK_URL}" ]]; then
+            echo "QA_DEPLOY_WEBHOOK_URL is not configured."
+            echo "Set QA_DEPLOY_WEBHOOK_URL secret before running QA deployment promotion." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
       - name: Trigger QA deployment webhook
-        if: ${{ env.QA_DEPLOY_WEBHOOK_URL != '' }}
         run: |
           curl -sS -X POST "${QA_DEPLOY_WEBHOOK_URL}" \
             -H "Content-Type: application/json" \
