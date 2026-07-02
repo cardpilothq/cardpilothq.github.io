@@ -32,7 +32,10 @@ const CORS_ORIGINS = CORS_ORIGIN_RAW
   : []
 
 const app = express()
-app.use(cors(CORS_ORIGINS.length ? { origin: CORS_ORIGINS } : undefined))
+app.use(cors(CORS_ORIGINS.length
+  ? { origin: CORS_ORIGINS, credentials: true }
+  : { origin: true, credentials: true }
+))
 app.use(express.json())
 
 // ── Rate limiter ──────────────────────────────────────────────────────────────
@@ -251,10 +254,11 @@ app.get('/', (req, res) => {
 const DEFAULT_PORT = 3000
 const FALLBACK_PORT = 3001
 const port = Number(process.env.PORT || DEFAULT_PORT)
+const LISTEN_HOST = String(process.env.HOST || '0.0.0.0').trim() || '0.0.0.0'
 
 function startServer(listenPort) {
-  const server = app.listen(listenPort, () => {
-    console.log(`${APP_NAME} backend (${APP_ENV}) running on http://localhost:${listenPort}`)
+  const server = app.listen(listenPort, LISTEN_HOST, () => {
+    console.log(`${APP_NAME} backend (${APP_ENV}) running on http://${LISTEN_HOST}:${listenPort}`)
   })
 
   server.on('error', (err) => {
