@@ -62,7 +62,10 @@ jobs:
             fi
           else
             case "${{ github.ref_name }}" in
-              poc|dev)
+              poc)
+                target="dev"
+                ;;
+              dev)
                 target="dev"
                 ;;
               qa)
@@ -84,7 +87,17 @@ jobs:
 
           case "$target" in
             dev)
-              publish_dir="Frontend-POC"
+              if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+                if [[ "${deploy_ref}" == "poc" || "${deploy_ref}" == "refs/heads/poc" ]]; then
+                  publish_dir="Frontend-POC"
+                else
+                  publish_dir="Frontend"
+                fi
+              elif [[ "${{ github.ref_name }}" == "poc" ]]; then
+                publish_dir="Frontend-POC"
+              else
+                publish_dir="Frontend"
+              fi
               target_repo="$DEV_PAGES_REPO"
               app_url="$DEV_APP_URL"
               ;;
@@ -136,6 +149,25 @@ jobs:
             echo "Publish directory not found: ${{ needs.resolve-target.outputs.publish_dir }}"
             exit 1
           }
+
+      - name: Block internal or secret-like files from publish directory
+        shell: bash
+        run: |
+          publish_dir="${{ needs.resolve-target.outputs.publish_dir }}"
+          blocked=$(find "$publish_dir" -type f \( \
+            -iname "*ops_manual*" -o \
+            -iname "*access_registry*" -o \
+            -iname "*test-user*" -o \
+            -iname "*.env*" -o \
+            -iname "*secret*" -o \
+            -iname "*password*" -o \
+            -path "*/internal/*" \
+          \))
+          if [[ -n "$blocked" ]]; then
+            echo "Blocked files detected in publish directory:"
+            echo "$blocked"
+            exit 1
+          fi
 
       - name: Add .nojekyll
         shell: bash
