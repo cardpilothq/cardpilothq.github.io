@@ -27,7 +27,7 @@ permissions:
 
 concurrency:
   group: deploy-${{ github.workflow }}-${{ github.ref_name }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   resolve-target:
@@ -159,6 +159,7 @@ jobs:
   deploy-qa:
     name: Deploy QA
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - resolve-target
       - build-artifacts
@@ -210,10 +211,10 @@ jobs:
           # Allow rollout time for the webhook-triggered deploy to become live.
           attempts=10
           for i in $(seq 1 "$attempts"); do
-            health_code=$(curl -s -o /dev/null -w "%{http_code}" "${QA_BASE_URL}/health")
-            providers_code=$(curl -s -o /dev/null -w "%{http_code}" "${QA_BASE_URL}/auth/providers")
-            pricing_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${QA_BASE_URL}/inventory/pricing/estimate-batch" -H "Content-Type: application/json" -d '{"cards":[{"sport":"Football","name":"Probe","team":"Probe","set":"Probe","year":"2026","cardNumber":"1","parallel":"Base"}]}')
-            submit_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${QA_BASE_URL}/catalog/listing-submit" -H "Content-Type: application/json" -d '{"templateId":"probe","cardRef":"SKU-000001"}')
+            health_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" "${QA_BASE_URL}/health")
+            providers_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" "${QA_BASE_URL}/auth/providers")
+            pricing_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" -X POST "${QA_BASE_URL}/inventory/pricing/estimate-batch" -H "Content-Type: application/json" -d '{"cards":[{"sport":"Football","name":"Probe","team":"Probe","set":"Probe","year":"2026","cardNumber":"1","parallel":"Base"}]}')
+            submit_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" -X POST "${QA_BASE_URL}/catalog/listing-submit" -H "Content-Type: application/json" -d '{"templateId":"probe","cardRef":"SKU-000001"}')
 
             echo "Attempt ${i}/${attempts}: health=${health_code} auth/providers=${providers_code} pricing=${pricing_code} listing-submit=${submit_code}"
 
