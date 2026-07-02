@@ -120,8 +120,28 @@ function extractBearerToken(req) {
   return ''
 }
 
+function extractCookieToken(req, cookieName = 'cardpilot_session') {
+  const raw = String(req.headers.cookie || '').trim()
+  if (!raw) return ''
+  const tokenPart = raw
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.toLowerCase().startsWith(`${cookieName.toLowerCase()}=`))
+  if (!tokenPart) return ''
+  const [, value = ''] = tokenPart.split('=')
+  try {
+    return decodeURIComponent(value).trim()
+  } catch {
+    return String(value || '').trim()
+  }
+}
+
+function extractSessionToken(req) {
+  return extractBearerToken(req) || extractCookieToken(req)
+}
+
 async function resolveInventoryOwnerUserId(req) {
-  const token = extractBearerToken(req)
+  const token = extractSessionToken(req)
   if (!token) return null
   try {
     const context = await getUserContextFromToken(token)
@@ -130,6 +150,17 @@ async function resolveInventoryOwnerUserId(req) {
     console.warn('Could not resolve inventory auth context:', err?.message || err)
     return null
   }
+}
+
+async function requireInventoryAuth(req, res, next) {
+  const ownerUserId = await resolveInventoryOwnerUserId(req)
+  if (!ownerUserId) {
+    res.status(401).json({ error: 'Unauthorized', details: 'Sign in is required for inventory operations.' })
+    return
+  }
+
+  req.inventoryOwnerUserId = ownerUserId
+  next()
 }
 
 function ownerWhereClause(ownerUserId) {
@@ -781,9 +812,9 @@ router.get('/', async (req, res) => {
   }
 })
 
-router.get('/ebay/coverage', async (req, res) => {
+router.get('/ebay/coverage', requireInventoryAuth, async (req, res) => {
   try {
-    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerUserId = req.inventoryOwnerUserId
     const items = await listInventoryForOwner(ownerUserId, String(req.query.sport || ''))
     const defaults = ebayDefaults(req)
     const coverage = buildEbayCoverage(items, defaults)
@@ -794,9 +825,9 @@ router.get('/ebay/coverage', async (req, res) => {
   }
 })
 
-router.get('/export/ebay-template.csv', async (req, res) => {
+router.get('/export/ebay-template.csv', requireInventoryAuth, async (req, res) => {
   try {
-    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerUserId = req.inventoryOwnerUserId
     const items = await listInventoryForOwner(ownerUserId, String(req.query.sport || ''))
     const defaults = ebayDefaults(req)
     const csv = buildEbayCsv(items, defaults)
@@ -814,10 +845,10 @@ router.get('/export/ebay-template.csv', async (req, res) => {
   }
 })
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireInventoryAuth, async (req, res) => {
   try {
     await initializeDatabase()
-    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerUserId = req.inventoryOwnerUserId
     const ownerScope = ownerWhereClause(ownerUserId)
 
     const id = String(req.params?.id || '').trim()
@@ -834,10 +865,10 @@ router.delete('/:id', async (req, res) => {
   }
 })
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireInventoryAuth, async (req, res) => {
   try {
     await initializeDatabase()
-    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerUserId = req.inventoryOwnerUserId
     const ownerScope = ownerWhereClause(ownerUserId)
 
     const id = String(req.params?.id || '').trim()
@@ -932,10 +963,10 @@ router.put('/:id', async (req, res) => {
   }
 })
 
-router.delete('/', async (req, res) => {
+router.delete('/', requireInventoryAuth, async (req, res) => {
   try {
     await initializeDatabase()
-    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerUserId = req.inventoryOwnerUserId
     const ownerScope = ownerWhereClause(ownerUserId)
 
     const clearAll = ['1', 'true', 'yes'].includes(String(req.query?.all || '').toLowerCase())
@@ -961,10 +992,10 @@ router.delete('/', async (req, res) => {
   }
 })
 
-router.post('/bulk', async (req, res) => {
+router.post('/bulk', requireInventoryAuth, async (req, res) => {
   try {
     await initializeDatabase()
-    const ownerUserId = await resolveInventoryOwnerUserId(req)
+    const ownerUserId = req.inventoryOwnerUserId
     const ownerScope = ownerWhereClause(ownerUserId)
 
     const sport = String(req.body?.sport || '').trim() || 'Football'
@@ -1045,7 +1076,7 @@ router.post('/bulk', async (req, res) => {
   }
 })
 
-router.post('/pricing/estimate-batch', async (req, res) => {
+router.post('/pricing/estimate-batch', requireInventoryAuth, async (req, res) => {
   try {
     const cards = Array.isArray(req.body?.cards) ? req.body.cards : []
     if (!cards.length) {
