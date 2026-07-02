@@ -108,3 +108,10 @@
 - Impact: QA validation cannot certify candidate build readiness; release progression is blocked even though pipeline run reports success.
 - Fix status (2026-07-02): Added fail-fast gate in `.github/workflows/deploy-environments.yml` so DEV/QA deploy jobs now fail when deploy webhook secret is missing instead of silently skipping rollout.
 - Remaining action: Configure `QA_DEPLOY_WEBHOOK_URL` in repository/environment secrets and verify webhook target deploys backend SHA from workflow artifact metadata.
+
+15. QA candidate branch was missing catalog auth middleware hardening for write/listing routes
+- Severity: High
+- Repro: Clean QA simulation at commit `7b39a10` returned 200 for unauthenticated POST `/catalog/templates`, `/catalog/sets`, `/catalog/checklist/bulk`, `/catalog/listing-draft`, and `/catalog/listing-submit` in `npm run test:authz`.
+- Expected: Catalog mutation and listing-draft/submit endpoints should require authenticated user context and owner scoping.
+- Impact: Anonymous callers can mutate catalog metadata and generate listing artifacts, blocking QA security readiness.
+- Fix status (2026-07-02): Promoting `backend/routes/catalog.js` auth middleware + owner scoping updates to QA branch; re-validation in progress.
