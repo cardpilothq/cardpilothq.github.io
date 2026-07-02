@@ -1539,24 +1539,34 @@ function setActivePage(page) {
   })
 
   const navButtons = [navHomeBtn, navScanBtn, navInventoryBtn, navPricingBtn, navListingsBtn]
-  navButtons.forEach((el) => el?.classList.remove('active'))
+  navButtons.forEach((el) => {
+    if (!el) return
+    el.classList.remove('active')
+    el.setAttribute('aria-selected', 'false')
+  })
+
+  const markNavActive = (button) => {
+    if (!button) return
+    button.classList.add('active')
+    button.setAttribute('aria-selected', 'true')
+  }
 
   if (safePage === 'scan') {
     scanPage?.classList.add('active')
-    navScanBtn?.classList.add('active')
+    markNavActive(navScanBtn)
   } else if (safePage === 'inventory') {
     inventoryPage?.classList.add('active')
-    navInventoryBtn?.classList.add('active')
+    markNavActive(navInventoryBtn)
   } else if (safePage === 'pricing') {
     pricingPage?.classList.add('active')
-    navPricingBtn?.classList.add('active')
+    markNavActive(navPricingBtn)
     renderPricingTable(inventoryRowsCache)
   } else if (safePage === 'listings') {
     listingsPage?.classList.add('active')
-    navListingsBtn?.classList.add('active')
+    markNavActive(navListingsBtn)
   } else {
     homePage?.classList.add('active')
-    navHomeBtn?.classList.add('active')
+    markNavActive(navHomeBtn)
   }
 
   try {
@@ -1564,6 +1574,45 @@ function setActivePage(page) {
   } catch {
     // Ignore storage write issues (private mode / quota).
   }
+}
+
+function initScanCommandRibbon() {
+  const tabs = [...document.querySelectorAll('[data-scan-ribbon-tab]')]
+  const panels = [...document.querySelectorAll('[data-scan-ribbon-panel]')]
+  if (!tabs.length || !panels.length) return
+
+  const activateTab = (tabKey) => {
+    const safeKey = String(tabKey || '').trim().toLowerCase()
+    let hasActivePanel = false
+
+    tabs.forEach((tab) => {
+      const isActive = String(tab.dataset.scanRibbonTab || '').toLowerCase() === safeKey
+      tab.classList.toggle('active', isActive)
+      tab.setAttribute('aria-selected', isActive ? 'true' : 'false')
+    })
+
+    panels.forEach((panel) => {
+      const isActive = String(panel.dataset.scanRibbonPanel || '').toLowerCase() === safeKey
+      panel.classList.toggle('active', isActive)
+      if (isActive) hasActivePanel = true
+    })
+
+    if (!hasActivePanel) {
+      const fallbackTab = tabs[0]
+      const fallbackKey = String(fallbackTab?.dataset.scanRibbonTab || '').toLowerCase()
+      if (fallbackKey && fallbackKey !== safeKey) {
+        activateTab(fallbackKey)
+      }
+    }
+  }
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      activateTab(tab.dataset.scanRibbonTab)
+    })
+  })
+
+  activateTab(tabs[0]?.dataset.scanRibbonTab || 'ai')
 }
 
 function getInitialActivePage() {
@@ -2082,6 +2131,8 @@ function initAppNavigation() {
       }
     })
   }
+
+  initScanCommandRibbon()
 
   navHomeBtn?.addEventListener('click', () => setActivePage('home'))
   navScanBtn?.addEventListener('click', () => setActivePage('scan'))

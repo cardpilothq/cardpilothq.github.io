@@ -7,7 +7,7 @@
   <title>CardPilot HQ</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=20260628b" />
+  <link rel="stylesheet" href="styles.css?v=20260701a" />
 </head>
 
 <body>
@@ -48,13 +48,31 @@
     </div>
   </div>
 
-  <div class="app-nav">
-    <button id="navHomeBtn" type="button" class="nav-btn active">Home</button>
-    <button id="navScanBtn" type="button" class="nav-btn">Scan Cards</button>
-    <button id="navInventoryBtn" type="button" class="nav-btn">Inventory</button>
-    <button id="navPricingBtn" type="button" class="nav-btn">Pricing</button>
-    <button id="navListingsBtn" type="button" class="nav-btn">Listings</button>
-    <button id="navProfileBtn" type="button" class="nav-btn">Profile</button>
+  <div class="app-nav" role="tablist" aria-label="Workspace navigation">
+    <button id="navHomeBtn" type="button" class="nav-btn active" role="tab" aria-selected="true">
+      <span class="nav-btn-label">Home</span>
+      <span class="nav-btn-hint">Overview</span>
+    </button>
+    <button id="navScanBtn" type="button" class="nav-btn" role="tab" aria-selected="false">
+      <span class="nav-btn-label">Scan</span>
+      <span class="nav-btn-hint">Import + Extract</span>
+    </button>
+    <button id="navInventoryBtn" type="button" class="nav-btn" role="tab" aria-selected="false">
+      <span class="nav-btn-label">Inventory</span>
+      <span class="nav-btn-hint">Review + Stage</span>
+    </button>
+    <button id="navPricingBtn" type="button" class="nav-btn" role="tab" aria-selected="false">
+      <span class="nav-btn-label">Pricing</span>
+      <span class="nav-btn-hint">Comp Research</span>
+    </button>
+    <button id="navListingsBtn" type="button" class="nav-btn" role="tab" aria-selected="false">
+      <span class="nav-btn-label">Listings</span>
+      <span class="nav-btn-hint">Build Drafts</span>
+    </button>
+    <button id="navProfileBtn" type="button" class="nav-btn" role="tab" aria-selected="false">
+      <span class="nav-btn-label">Profile</span>
+      <span class="nav-btn-hint">Account + Links</span>
+    </button>
   </div>
 
   <section id="homePage" class="app-page active">
@@ -95,35 +113,55 @@
           </label>
         </div>
 
-        <div class="button-row">
-          <div class="button-group">
-            <span class="button-group-label">AI Generation</span>
-            <button id="generateTitlesBtn">Generate Titles</button>
-            <button id="generateDescriptionsBtn">Generate Descriptions</button>
-            <button id="generateFilenamesBtn">Generate Filenames</button>
-          </div>
-
-          <div class="button-group">
-            <span class="button-group-label">Manage</span>
-            <button id="refreshPickOptionsBtn">Refresh Pick Options</button>
-            <button id="rescanScanBtn" type="button">Rescan Data</button>
-            <button id="addRowBtn">Add Empty Row</button>
-            <button id="saveInventoryBtn">Save Rows to Inventory</button>
-            <button id="discardScanDraftBtn" type="button" class="secondary-btn">Discard Unsaved Scan Draft</button>
-            <button id="manageColumnsBtn">Manage Columns</button>
-          </div>
-
-          <div class="button-group">
-            <span class="button-group-label">Export</span>
-            <button id="exportCsvBtn">Export CSV</button>
-            <button id="downloadZipBtn">Download Renamed Images (ZIP)</button>
-             <input id="pictureBaseUrl" type="text" placeholder="Picture base URL (optional)" />
-             <button id="generatePictureUrlsBtn">Generate Picture URLs</button>
-          </div>
-        </div>
       </aside>
 
       <div class="scan-content">
+        <div class="scan-command-ribbon">
+          <div class="scan-command-header">
+            <div class="scan-command-title">Scan Commands</div>
+            <p>Switch tabs to keep one focused action set in view.</p>
+          </div>
+
+          <div class="scan-command-tabs" role="tablist" aria-label="Scan command groups">
+            <button type="button" class="scan-command-tab active" data-scan-ribbon-tab="ai" role="tab" aria-selected="true" aria-controls="scanRibbonAiPanel">AI Tools</button>
+            <button type="button" class="scan-command-tab" data-scan-ribbon-tab="manage" role="tab" aria-selected="false" aria-controls="scanRibbonManagePanel">Manage Rows</button>
+            <button type="button" class="scan-command-tab" data-scan-ribbon-tab="export" role="tab" aria-selected="false" aria-controls="scanRibbonExportPanel">Export</button>
+          </div>
+
+          <div class="scan-command-panels">
+            <div id="scanRibbonAiPanel" class="scan-command-panel active" data-scan-ribbon-panel="ai" role="tabpanel">
+              <div class="button-group ribbon-button-group">
+                <span class="button-group-label">AI Generation</span>
+                <button id="generateTitlesBtn">Generate Titles</button>
+                <button id="generateDescriptionsBtn">Generate Descriptions</button>
+                <button id="generateFilenamesBtn">Generate Filenames</button>
+              </div>
+            </div>
+
+            <div id="scanRibbonManagePanel" class="scan-command-panel" data-scan-ribbon-panel="manage" role="tabpanel">
+              <div class="button-group ribbon-button-group">
+                <span class="button-group-label">Manage</span>
+                <button id="refreshPickOptionsBtn">Refresh Pick Options</button>
+                <button id="rescanScanBtn" type="button">Rescan Data</button>
+                <button id="addRowBtn">Add Empty Row</button>
+                <button id="saveInventoryBtn">Save Rows to Inventory</button>
+                <button id="discardScanDraftBtn" type="button" class="secondary-btn">Discard Unsaved Scan Draft</button>
+                <button id="manageColumnsBtn">Manage Columns</button>
+              </div>
+            </div>
+
+            <div id="scanRibbonExportPanel" class="scan-command-panel" data-scan-ribbon-panel="export" role="tabpanel">
+              <div class="button-group ribbon-button-group">
+                <span class="button-group-label">Export</span>
+                <button id="exportCsvBtn">Export CSV</button>
+                <button id="downloadZipBtn">Download Renamed Images (ZIP)</button>
+                <input id="pictureBaseUrl" type="text" placeholder="Picture base URL (optional)" />
+                <button id="generatePictureUrlsBtn">Generate Picture URLs</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Data Table -->
         <div class="table-wrapper">
           <table id="dataTable">
@@ -564,6 +602,30 @@
             <input id="loginPasswordInput" type="password" placeholder="Password" />
           </label>
           <button id="loginSubmitBtn" type="button">Sign In</button>
+
+          <hr />
+          <h3>Need help signing in?</h3>
+          <p class="profile-card-copy">Find your account using email or display name, or reset your password after verification.</p>
+
+          <label class="profile-field">
+            <span>Find Account (email or display name)</span>
+            <input id="recoveryIdentifierInput" type="text" placeholder="jzastudil2@gmail.com or your display name" />
+          </label>
+          <button id="findAccountBtn" type="button" class="secondary-btn">Find My Account</button>
+
+          <label class="profile-field">
+            <span>Reset Password: Account Email</span>
+            <input id="recoveryEmailInput" type="email" placeholder="you@example.com" />
+          </label>
+          <label class="profile-field">
+            <span>Reset Password: Display Name</span>
+            <input id="recoveryDisplayNameInput" type="text" placeholder="Display name on the account" />
+          </label>
+          <label class="profile-field">
+            <span>Reset Password: New Password</span>
+            <input id="recoveryNewPasswordInput" type="password" placeholder="At least 8 characters" />
+          </label>
+          <button id="resetPasswordBtn" type="button" class="secondary-btn">Reset Password</button>
         </div>
       </div>
 

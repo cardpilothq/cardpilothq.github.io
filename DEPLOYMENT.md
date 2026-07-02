@@ -51,6 +51,63 @@ This enforces QA validation before PROD and ensures PROD deploys the exact artif
 
 ---
 
+## Frontend: 3 Live URLs (DEV / QA / PROD)
+
+Your idea is correct: use separate live URLs per environment and promote changes forward.
+
+### Important GitHub Pages URL Rule
+
+Example URLs like `https://cardpilothqQA.github.io/` only work if `cardpilothqQA` is a real GitHub user/org.
+
+Recommended approach: keep one owner and use three repositories:
+
+- DEV: `https://<owner>.github.io/cardpilothq-dev/`
+- QA: `https://<owner>.github.io/cardpilothq-qa/`
+- PROD: `https://<owner>.github.io/cardpilothq-prod/`
+
+Example for `jayzeespc`:
+
+- DEV: `https://jayzeespc.github.io/cardpilothq-dev/`
+- QA: `https://jayzeespc.github.io/cardpilothq-qa/`
+- PROD: `https://jayzeespc.github.io/cardpilothq-prod/`
+
+### Workflow Added
+
+This repo now includes `.github/workflows/publish-frontend-environments.yml` which publishes frontend files to separate target repos:
+
+- `poc` / `dev` branch → DEV repo (publishes `Frontend-POC/`)
+- `qa` branch → QA repo (publishes `Frontend/`)
+- `main` branch → PROD repo (publishes `Frontend/`)
+
+### One-Time GitHub Setup
+
+1. Create target repositories (under the same owner):
+   - `cardpilothq-dev`
+   - `cardpilothq-qa`
+   - `cardpilothq-prod`
+2. In each target repo, enable **Pages** from `main` branch root (`/`).
+3. In this source repo (`card-automation`), set **Repository Variables**:
+   - `DEV_PAGES_REPO` = `<owner>/cardpilothq-dev`
+   - `QA_PAGES_REPO` = `<owner>/cardpilothq-qa`
+   - `PROD_PAGES_REPO` = `<owner>/cardpilothq-prod`
+   - `DEV_APP_URL` = `https://<owner>.github.io/cardpilothq-dev/`
+   - `QA_APP_URL` = `https://<owner>.github.io/cardpilothq-qa/`
+   - `PROD_APP_URL` = `https://<owner>.github.io/cardpilothq-prod/`
+4. Add one **Repository Secret** in this source repo:
+   - `PAGES_DEPLOY_TOKEN` = GitHub PAT with `repo` scope (classic token) or fine-grained token with write access to all three target repos.
+
+### Promotion Model
+
+Use this flow for frontend promotion:
+
+1. Merge feature work to `dev` (or `poc`) and validate on DEV URL.
+2. Promote same commit to `qa` and validate on QA URL.
+3. Promote approved QA commit to `main` and publish PROD URL.
+
+This gives you isolated live URLs while keeping environment promotion explicit.
+
+---
+
 ## Prerequisites
 - GitHub account: [jayzeespc](https://github.com/jayzeespc) ✓
 - Render.com account (free signup): https://render.com

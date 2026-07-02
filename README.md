@@ -85,10 +85,16 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step instructions.
 
 Quick summary:
 1. Push code to GitHub
-2. Enable GitHub Pages (frontend at `https://jayzeespc.github.io/card-automation/`)
-3. Deploy backend to Render free tier
-4. Update `Frontend/config.json` with backend URL
+2. Create three Pages repos (`cardpilothq-dev`, `cardpilothq-qa`, `cardpilothq-prod`)
+3. Configure `publish-frontend-environments.yml` variables/secrets in this repo
+4. Deploy backend to Render free tier per environment
+5. Update `Frontend/config.json` / `Frontend-POC/config.json` backend URLs per target
 5. Done! ✅
+
+Frontend URL pattern:
+- DEV: `https://<owner>.github.io/cardpilothq-dev/`
+- QA: `https://<owner>.github.io/cardpilothq-qa/`
+- PROD: `https://<owner>.github.io/cardpilothq-prod/`
 
 ### Side-By-Side POC Deployment (Recommended)
 

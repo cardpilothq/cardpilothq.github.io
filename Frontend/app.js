@@ -203,6 +203,12 @@ const signupSubmitBtn = document.getElementById("signupSubmitBtn");
 const loginEmailInput = document.getElementById("loginEmailInput");
 const loginPasswordInput = document.getElementById("loginPasswordInput");
 const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+const recoveryIdentifierInput = document.getElementById("recoveryIdentifierInput");
+const findAccountBtn = document.getElementById("findAccountBtn");
+const recoveryEmailInput = document.getElementById("recoveryEmailInput");
+const recoveryDisplayNameInput = document.getElementById("recoveryDisplayNameInput");
+const recoveryNewPasswordInput = document.getElementById("recoveryNewPasswordInput");
+const resetPasswordBtn = document.getElementById("resetPasswordBtn");
 const profileAccountSummary = document.getElementById("profileAccountSummary");
 const profileDisplayNameInput = document.getElementById("profileDisplayNameInput");
 const saveProfileBtn = document.getElementById("saveProfileBtn");
@@ -564,7 +570,8 @@ function renderConnectionsList() {
       ? `<p><strong>OAuth Expires:</strong> ${escapeHtml(formatProfileDate(item.connection.metadata.oauthExpiresAt))}</p>`
       : ''
     const directAction = item.providerKey === 'ebay'
-      ? `<button type="button" class="primary-btn" data-provider-oauth="ebay">${oauthConnected ? 'Reconnect eBay OAuth' : 'Connect eBay OAuth'}</button>`
+      ? `<button type="button" class="primary-btn" data-provider-oauth="ebay">${oauthConnected ? 'Reconnect eBay OAuth' : 'Connect eBay OAuth'}</button>
+         <button type="button" class="secondary-btn" data-provider-oauth-manual="ebay">Finish OAuth From URL</button>`
       : ''
     return `
       <article class="profile-connection-item">
@@ -596,6 +603,52 @@ function renderConnectionsList() {
   profileConnectionsList.querySelectorAll('button[data-provider-oauth="ebay"]').forEach((button) => {
     button.addEventListener('click', beginEbayOAuthFlow)
   })
+
+  profileConnectionsList.querySelectorAll('button[data-provider-oauth-manual="ebay"]').forEach((button) => {
+    button.addEventListener('click', completeEbayOAuthFromUrl)
+  })
+}
+
+function extractEbayOAuthCallbackParams(rawUrl) {
+  const text = String(rawUrl || '').trim()
+  if (!text) return null
+
+  try {
+    const parsed = new URL(text)
+    const state = String(parsed.searchParams.get('state') || '').trim()
+    const code = String(parsed.searchParams.get('code') || '').trim()
+    if (!state || !code) return null
+    return { state, code }
+  } catch {
+    return null
+  }
+}
+
+function completeEbayOAuthFromUrl() {
+  if (!authState?.user) {
+    showProfileStatus('Sign in first to complete eBay OAuth.', true)
+    return
+  }
+
+  const pasted = window.prompt('Paste the full eBay success URL containing state and code:')
+  if (!pasted) return
+
+  const params = extractEbayOAuthCallbackParams(pasted)
+  if (!params?.state || !params?.code) {
+    showProfileStatus('Could not find state/code in that URL. Copy the full address bar URL from the eBay success page.', true)
+    return
+  }
+
+  showProfileStatus('Finishing eBay OAuth with returned state/code...')
+  const callbackUrl = `/auth/ebay/callback?state=${encodeURIComponent(params.state)}&code=${encodeURIComponent(params.code)}`
+
+  getBackendUrl()
+    .then((backendUrl) => {
+      window.location.assign(`${backendUrl}${callbackUrl}`)
+    })
+    .catch((err) => {
+      showProfileStatus(`Could not resolve backend URL for OAuth completion: ${err?.message || 'Unknown error'}`, true)
+    })
 }
 
 function renderProfileUi() {
@@ -644,6 +697,7 @@ async function fetchBackend(endpoint, options = {}) {
 
   return fetch(`${backendUrl}${endpoint}`, {
     ...options,
+    credentials: 'include',
     headers
   })
 }
@@ -660,6 +714,7 @@ async function authApiFetch(endpoint, options = {}, { allowUnauthorized = false 
 
   const response = await fetch(`${backendUrl}${endpoint}`, {
     ...options,
+    credentials: 'include',
     headers
   })
 
@@ -715,10 +770,6 @@ async function ensureAuthProviders() {
 
 async function loadCurrentUserSession({ quiet = false } = {}) {
   authToken = getStoredAuthToken()
-  if (!authToken) {
-    renderProfileUi()
-    return false
-  }
 
   try {
     const { response, data } = await authApiFetch('/auth/me', { method: 'GET' }, { allowUnauthorized: true })
@@ -790,6 +841,69 @@ async function submitLogin() {
     applyAuthPayload(data)
   } catch (err) {
     showProfileStatus(err.message || 'Could not sign in.', true)
+  }
+}
+
+async function findAccountForSignin() {
+  try {
+    const identifier = String(recoveryIdentifierInput?.value || '').trim()
+    if (!identifier) {
+      showProfileStatus('Enter your email or display name to find your account.', true)
+      return
+    }
+
+    showProfileStatus('Checking account details...')
+    const { response, data } = await authApiFetch('/auth/recovery/find-account', {
+      method: 'POST',
+      body: JSON.stringify({ identifier })
+    }, { allowUnauthorized: true })
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Could not check account details.')
+    }
+
+    if (!data?.found) {
+      showProfileStatus('No account matched that email/display name. Try another identifier or create an account.', true)
+      return
+    }
+
+    showProfileStatus(`Account found for ${data.emailHint || 'that user'}. Use that email to sign in or reset password.`)
+    if (loginEmailInput && data?.emailHint) {
+      // Keep the typed value if user entered a full email in lookup.
+      if (identifier.includes('@')) loginEmailInput.value = identifier
+    }
+  } catch (err) {
+    showProfileStatus(err.message || 'Could not check account details.', true)
+  }
+}
+
+async function resetPasswordForSignin() {
+  try {
+    const email = String(recoveryEmailInput?.value || '').trim()
+    const displayName = String(recoveryDisplayNameInput?.value || '').trim()
+    const newPassword = String(recoveryNewPasswordInput?.value || '')
+
+    if (!email || !displayName || !newPassword) {
+      showProfileStatus('Email, display name, and new password are required for password reset.', true)
+      return
+    }
+
+    showProfileStatus('Resetting password...')
+    const { response, data } = await authApiFetch('/auth/recovery/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, displayName, newPassword })
+    }, { allowUnauthorized: true })
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Could not reset password.')
+    }
+
+    if (loginEmailInput) loginEmailInput.value = email
+    if (loginPasswordInput) loginPasswordInput.value = ''
+    if (recoveryNewPasswordInput) recoveryNewPasswordInput.value = ''
+    showProfileStatus(data?.message || 'Password reset successfully. Sign in with your new password.')
+  } catch (err) {
+    showProfileStatus(err.message || 'Could not reset password.', true)
   }
 }
 
@@ -2243,29 +2357,39 @@ function setActivePage(page) {
   })
 
   const navButtons = [navHomeBtn, navScanBtn, navInventoryBtn, navPricingBtn, navListingsBtn, navProfileBtn]
-  navButtons.forEach((el) => el?.classList.remove('active'))
+  navButtons.forEach((el) => {
+    if (!el) return
+    el.classList.remove('active')
+    el.setAttribute('aria-selected', 'false')
+  })
+
+  const markNavActive = (button) => {
+    if (!button) return
+    button.classList.add('active')
+    button.setAttribute('aria-selected', 'true')
+  }
 
   if (safePage === 'scan') {
     scanPage?.classList.add('active')
-    navScanBtn?.classList.add('active')
+    markNavActive(navScanBtn)
   } else if (safePage === 'inventory') {
     inventoryPage?.classList.add('active')
-    navInventoryBtn?.classList.add('active')
+    markNavActive(navInventoryBtn)
   } else if (safePage === 'pricing') {
     pricingPage?.classList.add('active')
-    navPricingBtn?.classList.add('active')
+    markNavActive(navPricingBtn)
     renderPricingTable(inventoryRowsCache)
   } else if (safePage === 'listings') {
     listingsPage?.classList.add('active')
-    navListingsBtn?.classList.add('active')
+    markNavActive(navListingsBtn)
   } else if (safePage === 'profile') {
     profilePage?.classList.add('active')
-    navProfileBtn?.classList.add('active')
+    markNavActive(navProfileBtn)
     ensureAuthProviders().catch(() => {})
     loadCurrentUserSession({ quiet: true }).catch(() => {})
   } else {
     homePage?.classList.add('active')
-    navHomeBtn?.classList.add('active')
+    markNavActive(navHomeBtn)
   }
 
   try {
@@ -2273,6 +2397,45 @@ function setActivePage(page) {
   } catch {
     // Ignore storage write issues (private mode / quota).
   }
+}
+
+function initScanCommandRibbon() {
+  const tabs = [...document.querySelectorAll('[data-scan-ribbon-tab]')]
+  const panels = [...document.querySelectorAll('[data-scan-ribbon-panel]')]
+  if (!tabs.length || !panels.length) return
+
+  const activateTab = (tabKey) => {
+    const safeKey = String(tabKey || '').trim().toLowerCase()
+    let hasActivePanel = false
+
+    tabs.forEach((tab) => {
+      const isActive = String(tab.dataset.scanRibbonTab || '').toLowerCase() === safeKey
+      tab.classList.toggle('active', isActive)
+      tab.setAttribute('aria-selected', isActive ? 'true' : 'false')
+    })
+
+    panels.forEach((panel) => {
+      const isActive = String(panel.dataset.scanRibbonPanel || '').toLowerCase() === safeKey
+      panel.classList.toggle('active', isActive)
+      if (isActive) hasActivePanel = true
+    })
+
+    if (!hasActivePanel) {
+      const fallbackTab = tabs[0]
+      const fallbackKey = String(fallbackTab?.dataset.scanRibbonTab || '').toLowerCase()
+      if (fallbackKey && fallbackKey !== safeKey) {
+        activateTab(fallbackKey)
+      }
+    }
+  }
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      activateTab(tab.dataset.scanRibbonTab)
+    })
+  })
+
+  activateTab(tabs[0]?.dataset.scanRibbonTab || 'ai')
 }
 
 function getInitialActivePage() {
@@ -2787,6 +2950,8 @@ function initAppNavigation() {
     })
   }
 
+  initScanCommandRibbon()
+
   navHomeBtn?.addEventListener('click', () => setActivePage('home'))
   navScanBtn?.addEventListener('click', () => setActivePage('scan'))
   navInventoryBtn?.addEventListener('click', async () => {
@@ -2879,6 +3044,8 @@ function initAppNavigation() {
   submitFeedbackBtn?.addEventListener('click', submitFeedbackReport)
   signupSubmitBtn?.addEventListener('click', submitSignup)
   loginSubmitBtn?.addEventListener('click', submitLogin)
+  findAccountBtn?.addEventListener('click', findAccountForSignin)
+  resetPasswordBtn?.addEventListener('click', resetPasswordForSignin)
   saveProfileBtn?.addEventListener('click', saveProfileSettings)
   logoutBtn?.addEventListener('click', logoutCurrentUser)
   saveConnectionBtn?.addEventListener('click', saveConnectionSettings)
