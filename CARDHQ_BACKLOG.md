@@ -114,4 +114,12 @@
 - Repro: Clean QA simulation at commit `7b39a10` returned 200 for unauthenticated POST `/catalog/templates`, `/catalog/sets`, `/catalog/checklist/bulk`, `/catalog/listing-draft`, and `/catalog/listing-submit` in `npm run test:authz`.
 - Expected: Catalog mutation and listing-draft/submit endpoints should require authenticated user context and owner scoping.
 - Impact: Anonymous callers can mutate catalog metadata and generate listing artifacts, blocking QA security readiness.
-- Fix status (2026-07-02): Promoting `backend/routes/catalog.js` auth middleware + owner scoping updates to QA branch; re-validation in progress.
+- Fix status (2026-07-02): Promoted `backend/routes/catalog.js` auth middleware + owner scoping updates in QA commit `4f0be1b`; clean QA simulation now passes `npm run test:authz` (12/12) and `npm run test:e2e:candidate` (10/10).
+
+16. QA webhook-triggered deploy completes but live QA backend remains on stale API surface
+- Severity: High
+- Repro: QA deploy workflow run `28603175292` shows `Trigger QA deployment webhook` success, but live `https://cardpilot-qa.onrender.com` still returns `404` for `/auth/providers`, `/inventory/pricing/estimate-batch`, and `/catalog/listing-submit` while other legacy routes remain active.
+- Expected: After QA webhook deployment, live QA backend should expose auth/profile routes and enforce 401 on protected pricing/listing-submit endpoints.
+- Impact: QA cannot be certified ready; promoted candidate commit behavior does not match live QA runtime.
+- Fix status (2026-07-02): Added post-webhook QA smoke checks in `.github/workflows/deploy-environments.yml` to assert endpoint contract (`health=200`, `auth/providers=200`, unauth pricing/listing-submit `401`) and fail deployment when stale surface persists.
+- Remaining action: Verify Render QA service source repo/branch and deploy hook target are mapped to the candidate backend service expected by this workflow.

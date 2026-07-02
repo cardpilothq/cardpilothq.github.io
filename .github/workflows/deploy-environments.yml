@@ -194,6 +194,42 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"sha":"${{ needs.build-artifacts.outputs.deploy_sha }}","environment":"qa","artifact":"${{ needs.build-artifacts.outputs.artifact_name }}"}'
 
+      - name: Verify QA deployment API surface
+        shell: bash
+        env:
+          QA_BASE_URL: https://cardpilot-qa.onrender.com
+        run: |
+          check_status() {
+            local expected="$1"
+            local command="$2"
+            local code
+            code=$(eval "$command")
+            [[ "$code" == "$expected" ]]
+          }
+
+          # Allow rollout time for the webhook-triggered deploy to become live.
+          attempts=10
+          for i in $(seq 1 "$attempts"); do
+            health_code=$(curl -s -o /dev/null -w "%{http_code}" "${QA_BASE_URL}/health")
+            providers_code=$(curl -s -o /dev/null -w "%{http_code}" "${QA_BASE_URL}/auth/providers")
+            pricing_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${QA_BASE_URL}/inventory/pricing/estimate-batch" -H "Content-Type: application/json" -d '{"cards":[{"sport":"Football","name":"Probe","team":"Probe","set":"Probe","year":"2026","cardNumber":"1","parallel":"Base"}]}')
+            submit_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${QA_BASE_URL}/catalog/listing-submit" -H "Content-Type: application/json" -d '{"templateId":"probe","cardRef":"SKU-000001"}')
+
+            echo "Attempt ${i}/${attempts}: health=${health_code} auth/providers=${providers_code} pricing=${pricing_code} listing-submit=${submit_code}"
+
+            if [[ "$health_code" == "200" && "$providers_code" == "200" && "$pricing_code" == "401" && "$submit_code" == "401" ]]; then
+              echo "QA smoke checks passed."
+              exit 0
+            fi
+
+            if [[ "$i" -lt "$attempts" ]]; then
+              sleep 15
+            fi
+          done
+
+          echo "QA smoke checks failed: expected health=200, auth/providers=200, pricing=401, listing-submit=401"
+          exit 1
+
       - name: QA deployment summary
         run: |
           echo "QA deployment completed for ref: ${{ needs.resolve-target.outputs.deploy_ref }}" >> "$GITHUB_STEP_SUMMARY"
