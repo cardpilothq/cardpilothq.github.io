@@ -127,6 +127,8 @@ jobs:
     if: needs.resolve-target.outputs.target == 'dev'
     environment:
       name: DEV-POC
+    env:
+      DEV_DEPLOY_WEBHOOK_URL: ${{ secrets.DEV_DEPLOY_WEBHOOK_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -134,9 +136,9 @@ jobs:
           ref: ${{ needs.resolve-target.outputs.deploy_ref }}
 
       - name: Trigger DEV deployment webhook
-        if: ${{ secrets.DEV_DEPLOY_WEBHOOK_URL != '' }}
+        if: ${{ env.DEV_DEPLOY_WEBHOOK_URL != '' }}
         run: |
-          curl -sS -X POST "${{ secrets.DEV_DEPLOY_WEBHOOK_URL }}" \
+          curl -sS -X POST "${DEV_DEPLOY_WEBHOOK_URL}" \
             -H "Content-Type: application/json" \
             -d '{"sha":"${{ needs.build-artifacts.outputs.deploy_sha }}","environment":"dev"}'
 
@@ -155,6 +157,8 @@ jobs:
     if: needs.resolve-target.outputs.target == 'qa'
     environment:
       name: QA
+    env:
+      QA_DEPLOY_WEBHOOK_URL: ${{ secrets.QA_DEPLOY_WEBHOOK_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -168,9 +172,9 @@ jobs:
           path: .deployment-bundle
 
       - name: Trigger QA deployment webhook
-        if: ${{ secrets.QA_DEPLOY_WEBHOOK_URL != '' }}
+        if: ${{ env.QA_DEPLOY_WEBHOOK_URL != '' }}
         run: |
-          curl -sS -X POST "${{ secrets.QA_DEPLOY_WEBHOOK_URL }}" \
+          curl -sS -X POST "${QA_DEPLOY_WEBHOOK_URL}" \
             -H "Content-Type: application/json" \
             -d '{"sha":"${{ needs.build-artifacts.outputs.deploy_sha }}","environment":"qa","artifact":"${{ needs.build-artifacts.outputs.artifact_name }}"}'
 
