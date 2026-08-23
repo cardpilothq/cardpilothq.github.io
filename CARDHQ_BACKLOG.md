@@ -1,5 +1,7 @@
 # CardHQ Backlog
 
+> Historical note (2026-08-23): references to `DEV` and `QA` in this file are from the legacy 3-environment rollout history. Current deployment model is `TEST` and `PROD` only.
+
 ## Enhancement Items
 
 1. Pre-scan import panel optimization
@@ -12,7 +14,7 @@
 - Add direct GitHub backlog issue creation with richer templates, labels, and triage metadata.
 - Add screenshot/file attachment support for defect submissions.
 
-## Bug Items (DEV Regression 2026-07-01)
+## Bug Items (Legacy DEV/QA Regression 2026-07-01)
 
 ### GitHub Issue Status (Updated 2026-07-01)
 
@@ -100,6 +102,7 @@
 - Expected: QA promotion workflow should execute resolve/build/deploy jobs and optionally call webhook when configured.
 - Impact: Candidate commit cannot be promoted/deployed to QA, blocking end-to-end QA validation and release progression.
 - Fix status (2026-07-02): Updated workflow to map secrets into job env vars and use `env.*` in step `if` expressions for DEV and QA webhook steps.
+- Final status (2026-08-23): Closed by TEST/PROD workflow refactor and successful mainline promotion run.
 
 14. QA deploy job succeeds but skips webhook trigger, leaving QA backend on stale API surface
 - Severity: High
@@ -107,7 +110,7 @@
 - Expected: QA deployment should invoke webhook and deploy the promoted candidate commit so QA APIs match DEV-validated auth and listing flow behavior.
 - Impact: QA validation cannot certify candidate build readiness; release progression is blocked even though pipeline run reports success.
 - Fix status (2026-07-02): Added fail-fast gate in `.github/workflows/deploy-environments.yml` so DEV/QA deploy jobs now fail when deploy webhook secret is missing instead of silently skipping rollout.
-- Remaining action: Configure `QA_DEPLOY_WEBHOOK_URL` in repository/environment secrets and verify webhook target deploys backend SHA from workflow artifact metadata.
+- Final status (2026-08-23): Closed. `TEST_DEPLOY_WEBHOOK_URL` is configured and `QA_DEPLOY_WEBHOOK_URL` was retired after stable TEST runs.
 
 15. QA candidate branch was missing catalog auth middleware hardening for write/listing routes
 - Severity: High
@@ -115,6 +118,7 @@
 - Expected: Catalog mutation and listing-draft/submit endpoints should require authenticated user context and owner scoping.
 - Impact: Anonymous callers can mutate catalog metadata and generate listing artifacts, blocking QA security readiness.
 - Fix status (2026-07-02): Promoted `backend/routes/catalog.js` auth middleware + owner scoping updates in QA commit `4f0be1b`; clean QA simulation now passes `npm run test:authz` (12/12) and `npm run test:e2e:candidate` (10/10).
+- Final status (2026-08-23): Closed in TEST/PROD branch policy; auth hardening validated in current TEST workflow.
 
 16. QA webhook-triggered deploy completes but live QA backend remains on stale API surface
 - Severity: High
@@ -122,4 +126,4 @@
 - Expected: After QA webhook deployment, live QA backend should expose auth/profile routes and enforce 401 on protected pricing/listing-submit endpoints.
 - Impact: QA cannot be certified ready; promoted candidate commit behavior does not match live QA runtime.
 - Fix status (2026-07-02): Added post-webhook QA smoke checks in `.github/workflows/deploy-environments.yml` to assert endpoint contract (`health=200`, `auth/providers=200`, unauth pricing/listing-submit `401`) and fail deployment when stale surface persists.
-- Remaining action: Verify Render QA service source repo/branch and deploy hook target are mapped to the candidate backend service expected by this workflow.
+- Final status (2026-08-23): Closed after TEST deployment and TEST-to-PROD promotion completed successfully on `main`.
