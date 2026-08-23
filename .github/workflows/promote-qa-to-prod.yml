@@ -84,6 +84,8 @@ jobs:
     needs: verify-test-run
     environment:
       name: PROD
+    env:
+      PROD_DEPLOY_WEBHOOK_URL: ${{ secrets.PROD_DEPLOY_WEBHOOK_URL }}
     steps:
       - name: Download TEST deployment artifact
         uses: actions/download-artifact@v4
@@ -101,10 +103,13 @@ jobs:
           cat .deployment-bundle/metadata.json
 
       - name: Trigger PROD deployment webhook
-        if: ${{ secrets.PROD_DEPLOY_WEBHOOK_URL != '' }}
         shell: bash
         run: |
-          curl -sS -X POST "${{ secrets.PROD_DEPLOY_WEBHOOK_URL }}" \
+          if [[ -z "${PROD_DEPLOY_WEBHOOK_URL}" ]]; then
+            echo "PROD_DEPLOY_WEBHOOK_URL is not configured. Skipping webhook trigger."
+            exit 0
+          fi
+          curl -sS -X POST "${PROD_DEPLOY_WEBHOOK_URL}" \
             -H "Content-Type: application/json" \
             -d '{"sha":"${{ needs.verify-test-run.outputs.deploy_sha }}","environment":"prod","artifact":"${{ needs.verify-test-run.outputs.artifact_name }}","sourceTestRunId":"${{ inputs.test_run_id }}"}'
 
