@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - test
-      - qa
       - main
   workflow_dispatch:
     inputs:
@@ -58,7 +57,7 @@ jobs:
             fi
           else
             case "${{ github.ref_name }}" in
-              test|qa)
+              test)
                 target="test"
                 ;;
               main)

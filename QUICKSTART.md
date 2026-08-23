@@ -1,125 +1,60 @@
-# Quick Start: Deploy CardPilot HQ to GitHub Pages + Render
+# Quick Start: CardPilotHQ with 2 Environments
 
-## 1. Push to GitHub (5 min)
+This project now uses only:
+- `TEST`: eBay `sandbox`
+- `PROD`: eBay `production`
+
+## 1. Backend Local Setup (TEST)
 
 ```powershell
-cd d:\Website\card-automation
-.\setup-github.bat
-
-# Follow prompts to connect to your GitHub repo
+cd backend
+npm install
+copy .env.test.example .env.test
+npm run start:test
 ```
 
-This will:
-- ✅ Initialize git locally
-- ✅ Commit your code
-- ✅ Push to `https://github.com/jayzeespc/card-automation`
+Required values in `.env.test`:
+- `APP_ENV=test`
+- `EBAY_ENV=sandbox`
+- `AZURE_ENDPOINT`
+- `AZURE_API_KEY`
 
-## 2. Enable GitHub Pages (2 min)
+## 2. Backend Local Setup (PROD)
 
-1. Go to: https://github.com/jayzeespc/card-automation/settings/pages
-2. Under "Source", select: Branch: `main`, Folder: `/ (root)`
-3. Save
-
-Your frontend is now live at:
-👉 **https://jayzeespc.github.io/card-automation/**
-
-(GitHub Pages rebuilds automatically when you push. Wait ~1 minute for it to appear.)
-
-## 3. Deploy Backend to Render (10 min)
-
-1. Sign up at https://render.com (free account)
-2. Click: **New +** → **Web Service**
-3. Search for and connect: `card-automation` repo
-
-### Configure Service:
-- **Name:** `cardpilot-qa`
-- **Environment:** `Node`
-- **Build Command:** `cd backend && npm install`
-- **Start Command:** `node backend/server.js`
-- **Plan:** Free
-
-### Add Environment Variables (copy from Azure Portal):
-```
-APP_NAME=CardPilot HQ
-APP_ENV=qa
-AZURE_ENDPOINT=https://your-resource.cognitiveservices.azure.com
-AZURE_API_KEY=your-api-key-here
-AZURE_MODEL_ID=prebuilt-read
-AZURE_API_VERSION=2024-11-30
-NODE_ENV=production
-CORS_ORIGIN=https://jayzeespc.github.io
-RATE_LIMIT_MAX_REQUESTS=30
-RATE_LIMIT_WINDOW_MS=60000
-AZURE_DAILY_LIMIT=500
-```
-
-Click **Deploy**. Wait ~3 min for deployment to complete.
-
-After deployment, your backend URL is: `https://cardpilot-qa.onrender.com`
-
-## 4. Connect Frontend to Backend (1 min)
-
-Edit `Frontend/config.json`:
-
-```json
-{
-  "backendUrl": "https://cardpilot-qa.onrender.com"
-}
-```
-
-Commit and push:
 ```powershell
-git add Frontend/config.json
-git commit -m "Set backend URL for deployment"
-git push
+cd backend
+copy .env.prod.example .env.prod
+npm run start:prod
 ```
 
-GitHub Pages rebuilds automatically. Wait ~1 minute.
+Required values in `.env.prod`:
+- `APP_ENV=prod`
+- `EBAY_ENV=production`
 
-## 5. Test It! ✅
+## 3. GitHub Environments and Secrets
 
-Open: https://jayzeespc.github.io/card-automation/
+Create GitHub environments:
+- `TEST`
+- `PROD`
 
-You should see:
-- ✅ CardPilot HQ header with **[QA]** badge (orange)
-- ✅ "AI extraction enabled" message
-- ✅ No console errors
+Repository secrets:
+- `TEST_DEPLOY_WEBHOOK_URL`
+- `PROD_DEPLOY_WEBHOOK_URL`
+- `PAGES_DEPLOY_TOKEN`
 
-Try uploading a small batch (3-5 cards) to test end-to-end:
-- ✅ OCR extracts card details
-- ✅ SKU increments (SKU-000001, etc.)
-- ✅ Duplicates merge
-- ✅ Inventory saves
+Repository variables:
+- `TEST_BASE_URL`
+- `TEST_PAGES_REPO`
+- `PROD_PAGES_REPO`
+- `TEST_APP_URL`
+- `PROD_APP_URL`
 
-## Troubleshooting
+## 4. Deployment Flow
 
-### Backend not found / 404 errors
-- Verify Render deployment succeeded: https://dashboard.render.com
-- Check your Azure credentials are correct
-- Verify `CORS_ORIGIN=https://jayzeespc.github.io` is set on Render
-- Clear browser cache (Ctrl+Shift+Del) and hard refresh (Ctrl+Shift+R)
+1. Push to `test` branch to deploy `TEST`.
+2. Run `Promote TEST Artifact to PROD` workflow with `test_run_id` from a successful TEST run.
+3. Approve PROD environment gate if required.
 
-### Rate limit (429) errors
-- This means backend is working but being overwhelmed
-- Check Render logs for details
-- Verify frontend code has `OCR_MIN_INTERVAL_MS = 2500`
+## 5. Frontend Config
 
-### Frontend shows old version
-- Hard refresh: **Ctrl+Shift+R** (Windows)
-- Clear cache: **Ctrl+Shift+Delete**
-
-## That's It! 🚀
-
-Your app is now:
-- 📱 Accessible from any device (phone, tablet, PC)
-- 🌐 On a real HTTPS URL (not localhost)
-- 💰 **Completely free**
-
----
-
-**Next Steps:**
-- Test from your phone on home Wi-Fi
-- Test from mobile data (outside network)
-- Share the URL with testers if needed
-
-**For detailed info:** See [DEPLOYMENT.md](DEPLOYMENT.md)
+`Frontend/config.json` should point to your TEST backend for test verification, and PROD backend for production release.

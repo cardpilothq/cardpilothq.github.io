@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - test
-      - qa
   workflow_dispatch:
     inputs:
       target_environment:
@@ -49,7 +48,7 @@ jobs:
             fi
           else
             case "${{ github.ref_name }}" in
-              test|qa)
+              test)
                 target="test"
                 ;;
               *)
@@ -124,7 +123,7 @@ jobs:
     environment:
       name: TEST
     env:
-      TEST_DEPLOY_WEBHOOK_URL: ${{ secrets.TEST_DEPLOY_WEBHOOK_URL || secrets.QA_DEPLOY_WEBHOOK_URL }}
+      TEST_DEPLOY_WEBHOOK_URL: ${{ secrets.TEST_DEPLOY_WEBHOOK_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -142,7 +141,7 @@ jobs:
         run: |
           if [[ -z "${TEST_DEPLOY_WEBHOOK_URL}" ]]; then
             echo "TEST_DEPLOY_WEBHOOK_URL is not configured."
-            echo "Set TEST_DEPLOY_WEBHOOK_URL (preferred) or QA_DEPLOY_WEBHOOK_URL (legacy fallback) before running TEST deployment." >> "$GITHUB_STEP_SUMMARY"
+            echo "Set TEST_DEPLOY_WEBHOOK_URL before running TEST deployment." >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 

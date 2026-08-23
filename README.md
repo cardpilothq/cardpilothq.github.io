@@ -1,8 +1,10 @@
 # CardPilot HQ - Automated Sports Card Inventory Manager
 
+Internal-only HTML docs, architecture notes, and access inventories should be kept in a local `internal/` folder and must never be published from `Frontend/` or `Frontend-POC/`.
+
 A full-stack web app for scanning, OCR extraction, and cataloging sports trading cards. Built with Node.js + Azure Document Intelligence + vanilla JavaScript.
 
-POC mode is also supported for low-cost CardSight free/trial evaluation without replacing your main QA/PROD flows.
+Environment model is intentionally simplified to only TEST and PROD.
 
 ## Features
 
@@ -26,7 +28,7 @@ POC mode is also supported for low-cost CardSight free/trial evaluation without 
 📱 **PWA Support**
 - Home screen install
 - Offline-capable with IndexedDB draft storage
-- Real-time environment badges ([QA] / [PROD])
+- Real-time environment badges ([TEST] / [PROD])
 
 ## Quick Start (Local)
 
@@ -41,7 +43,7 @@ POC mode is also supported for low-cost CardSight free/trial evaluation without 
 # Backend
 cd backend
 npm install
-npm run start:qa
+npm run start:test
 
 # Frontend (in separate terminal)
 # Open http://localhost:3000 or http://localhost:3001
@@ -53,72 +55,42 @@ npm run start:qa
    - Cognitive Services → Document Intelligence
    - Copy `Endpoint` and `API Key`
 
-2. Create `.env.qa`:
+2. Create `.env.test`:
    ```
-   APP_ENV=qa
+  APP_ENV=test
    AZURE_ENDPOINT=https://your-resource.cognitiveservices.azure.com
    AZURE_API_KEY=your-api-key-here
    AZURE_MODEL_ID=prebuilt-read
    ```
 
-3. Restart backend: `npm run start:qa`
-
-### Configure POC (CardSight Free/Trial)
-
-1. Copy `backend/.env.poc.example` to `backend/.env.poc`
-2. Set your trial key:
-  - `CARDSIGHT_API_KEY=...`
-3. Start POC backend:
-
-```bash
-cd backend
-npm run start:poc
-```
-
-POC settings include hard usage caps and cheap-mode single-pass analyze by default.
+3. Restart backend: `npm run start:test`
 
 ## Deployment
 
 **GitHub Pages + Render (free):**
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step instructions.
+See [internal/OPS_MANUAL.html](internal/OPS_MANUAL.html) for full operations standards, release gates, and incident/process runbooks.
 
 Quick summary:
 1. Push code to GitHub
-2. Create three Pages repos (`cardpilothq-dev`, `cardpilothq-qa`, `cardpilothq-prod`)
+2. Create two Pages repos (`cardpilothq-test`, `cardpilothq-prod`)
 3. Configure `publish-frontend-environments.yml` variables/secrets in this repo
 4. Deploy backend to Render free tier per environment
-5. Update `Frontend/config.json` / `Frontend-POC/config.json` backend URLs per target
+5. Update `Frontend/config.json` backend URLs per target
 5. Done! ✅
 
+Rule: All implementation changes must be validated in `TEST` first. Do not deploy directly to `PROD` before TEST verification is complete.
+
+Team norm for every TEST push: add or update automated test coverage for changed behavior and review/update [internal/OPS_MANUAL.html](internal/OPS_MANUAL.html) when operational behavior is affected.
+
 Frontend URL pattern:
-- DEV: `https://<owner>.github.io/cardpilothq-dev/`
-- QA: `https://<owner>.github.io/cardpilothq-qa/`
+- TEST: `https://<owner>.github.io/cardpilothq-test/`
 - PROD: `https://<owner>.github.io/cardpilothq-prod/`
 
-### Side-By-Side POC Deployment (Recommended)
+Operational environment and secret requirements live in [internal/OPS_MANUAL.html](internal/OPS_MANUAL.html).
 
-Keep your main site and POC site separate without changing your QA/PROD setup:
 
-1. Prepare POC frontend copy:
-
-```powershell
-cd d:\Website\card-automation
-setup-poc-frontend.bat
-```
-
-2. Publish `Frontend-POC/` as your POC GitHub Pages site.
-3. Point the POC frontend to your POC backend via `Frontend-POC/config.json`.
-4. Run POC backend with:
-
-```powershell
-cd backend
-npm run start:poc
-```
-
-This gives you a clean split like:
-- Main: CardPilot HQ (QA/PROD)
-- Trial: CardPilot HQ - POC (CardSight free/trial evaluation)
 
 ## Project Structure
 
@@ -160,10 +132,10 @@ Frontend/
 
 ## Environment Variables
 
-### `.env.qa` (QA/Testing)
+### `.env.test` (TEST)
 ```
 APP_NAME=CardPilot HQ
-APP_ENV=qa
+APP_ENV=test
 PORT=3000
 CORS_ORIGIN=http://localhost:3000
 AZURE_ENDPOINT=...
@@ -174,11 +146,6 @@ RATE_LIMIT_MAX_REQUESTS=30
 ### `.env.prod` (Production)
 Same structure, with `APP_ENV=prod` and updated `CORS_ORIGIN`
 
-### `.env.poc` (CardSight Trial Evaluation)
-Use `AI_PROVIDER=hybrid`, `AI_PRIMARY_PROVIDER=cardsight`, and keep:
-- `POC_BUDGET_ENABLED=true`
-- `POC_MAX_ANALYZE_CALLS=120`
-- `POC_CHEAP_MODE=true`
 - `CARDSIGHT_USE_FREE_PREFLIGHT=true`
 
 ## Testing
@@ -188,7 +155,7 @@ Use `AI_PROVIDER=hybrid`, `AI_PRIMARY_PROVIDER=cardsight`, and keep:
 node backend/scripts/runRegressionBatch.mjs
 
 # Start local dev server
-npm run start:qa
+npm run start:test
 
 # Check diagnostics
 curl http://localhost:3000/diagnostics | jq
@@ -204,7 +171,7 @@ curl http://localhost:3000/diagnostics | jq
 **"Backend not found":**
 - Verify health endpoint: `curl http://localhost:3000/health`
 - Check CORS_ORIGIN matches your frontend URL
-- Ensure backend is running: `npm run start:qa`
+- Ensure backend is running: `npm run start:test`
 
 **Duplicate rows not merging:**
 - Check `scoreDuplicatePair()` scoring thresholds in `Frontend/app.js`
