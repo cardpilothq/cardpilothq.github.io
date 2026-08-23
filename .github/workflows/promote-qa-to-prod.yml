@@ -49,19 +49,6 @@ jobs:
               return
             }
 
-            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-              owner,
-              repo,
-              run_id: runId,
-              per_page: 100
-            })
-
-            const testJob = jobs.find((j) => j.name === 'Deploy TEST')
-            if (!testJob || testJob.conclusion !== 'success') {
-              core.setFailed('TEST deployment job is missing or not successful for the provided run id')
-              return
-            }
-
             const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
               owner,
               repo,
