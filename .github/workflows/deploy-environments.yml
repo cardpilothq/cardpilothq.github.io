@@ -3,8 +3,7 @@ name: Deploy Environments
 on:
   push:
     branches:
-      - poc
-      - dev
+      - test
       - qa
   workflow_dispatch:
     inputs:
@@ -12,10 +11,9 @@ on:
         description: "Target environment"
         type: choice
         required: true
-        default: dev
+        default: test
         options:
-          - dev
-          - qa
+          - test
       ref:
         description: "Branch or SHA to deploy"
         required: false
@@ -41,7 +39,7 @@ jobs:
         id: resolve
         shell: bash
         run: |
-          target=""
+          target="test"
           deploy_ref="${{ github.sha }}"
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -51,11 +49,8 @@ jobs:
             fi
           else
             case "${{ github.ref_name }}" in
-              poc|dev)
-                target="dev"
-                ;;
-              qa)
-                target="qa"
+              test|qa)
+                target="test"
                 ;;
               *)
                 echo "Unsupported branch for deployment: ${{ github.ref_name }}"
@@ -118,56 +113,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  deploy-dev:
-    name: Deploy DEV (POC)
-    runs-on: ubuntu-latest
-    needs:
-      - resolve-target
-      - build-artifacts
-    if: needs.resolve-target.outputs.target == 'dev'
-    environment:
-      name: DEV-POC
-    env:
-      DEV_DEPLOY_WEBHOOK_URL: ${{ secrets.DEV_DEPLOY_WEBHOOK_URL }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve-target.outputs.deploy_ref }}
-
-      - name: Require DEV deployment webhook configuration
-        shell: bash
-        run: |
-          if [[ -z "${DEV_DEPLOY_WEBHOOK_URL}" ]]; then
-            echo "DEV_DEPLOY_WEBHOOK_URL is not configured."
-            echo "Set DEV_DEPLOY_WEBHOOK_URL secret before running DEV deployment promotion." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-
-      - name: Trigger DEV deployment webhook
-        run: |
-          curl -sS -X POST "${DEV_DEPLOY_WEBHOOK_URL}" \
-            -H "Content-Type: application/json" \
-            -d '{"sha":"${{ needs.build-artifacts.outputs.deploy_sha }}","environment":"dev"}'
-
-      - name: DEV deployment summary
-        run: |
-          echo "DEV deployment completed for ref: ${{ needs.resolve-target.outputs.deploy_ref }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Artifact: ${{ needs.build-artifacts.outputs.artifact_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Configure DEV_DEPLOY_WEBHOOK_URL secret to trigger real infrastructure deployment." >> "$GITHUB_STEP_SUMMARY"
-
-  deploy-qa:
-    name: Deploy QA
+  deploy-test:
+    name: Deploy TEST
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs:
       - resolve-target
       - build-artifacts
-    if: needs.resolve-target.outputs.target == 'qa'
+    if: needs.resolve-target.outputs.target == 'test'
     environment:
-      name: QA
+      name: TEST
     env:
-      QA_DEPLOY_WEBHOOK_URL: ${{ secrets.QA_DEPLOY_WEBHOOK_URL }}
+      TEST_DEPLOY_WEBHOOK_URL: ${{ secrets.TEST_DEPLOY_WEBHOOK_URL || secrets.QA_DEPLOY_WEBHOOK_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -180,46 +137,37 @@ jobs:
           name: ${{ needs.build-artifacts.outputs.artifact_name }}
           path: .deployment-bundle
 
-      - name: Require QA deployment webhook configuration
+      - name: Require TEST deployment webhook configuration
         shell: bash
         run: |
-          if [[ -z "${QA_DEPLOY_WEBHOOK_URL}" ]]; then
-            echo "QA_DEPLOY_WEBHOOK_URL is not configured."
-            echo "Set QA_DEPLOY_WEBHOOK_URL secret before running QA deployment promotion." >> "$GITHUB_STEP_SUMMARY"
+          if [[ -z "${TEST_DEPLOY_WEBHOOK_URL}" ]]; then
+            echo "TEST_DEPLOY_WEBHOOK_URL is not configured."
+            echo "Set TEST_DEPLOY_WEBHOOK_URL (preferred) or QA_DEPLOY_WEBHOOK_URL (legacy fallback) before running TEST deployment." >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 
-      - name: Trigger QA deployment webhook
+      - name: Trigger TEST deployment webhook
         run: |
-          curl -sS -X POST "${QA_DEPLOY_WEBHOOK_URL}" \
+          curl -sS -X POST "${TEST_DEPLOY_WEBHOOK_URL}" \
             -H "Content-Type: application/json" \
-            -d '{"sha":"${{ needs.build-artifacts.outputs.deploy_sha }}","environment":"qa","artifact":"${{ needs.build-artifacts.outputs.artifact_name }}"}'
+            -d '{"sha":"${{ needs.build-artifacts.outputs.deploy_sha }}","environment":"test","artifact":"${{ needs.build-artifacts.outputs.artifact_name }}"}'
 
-      - name: Verify QA deployment API surface
+      - name: Verify TEST deployment API surface
         shell: bash
         env:
-          QA_BASE_URL: https://cardpilot-qa.onrender.com
+          TEST_BASE_URL: ${{ vars.TEST_BASE_URL || 'https://cardpilot-qa.onrender.com' }}
         run: |
-          check_status() {
-            local expected="$1"
-            local command="$2"
-            local code
-            code=$(eval "$command")
-            [[ "$code" == "$expected" ]]
-          }
-
-          # Allow rollout time for the webhook-triggered deploy to become live.
           attempts=10
           for i in $(seq 1 "$attempts"); do
-            health_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" "${QA_BASE_URL}/health" || echo 000)
-            providers_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" "${QA_BASE_URL}/auth/providers" || echo 000)
-            pricing_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" -X POST "${QA_BASE_URL}/inventory/pricing/estimate-batch" -H "Content-Type: application/json" -d '{"cards":[{"sport":"Football","name":"Probe","team":"Probe","set":"Probe","year":"2026","cardNumber":"1","parallel":"Base"}]}' || echo 000)
-            submit_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" -X POST "${QA_BASE_URL}/catalog/listing-submit" -H "Content-Type: application/json" -d '{"templateId":"probe","cardRef":"SKU-000001"}' || echo 000)
+            health_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" "${TEST_BASE_URL}/health" || echo 000)
+            providers_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" "${TEST_BASE_URL}/auth/providers" || echo 000)
+            pricing_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" -X POST "${TEST_BASE_URL}/inventory/pricing/estimate-batch" -H "Content-Type: application/json" -d '{"cards":[{"sport":"Football","name":"Probe","team":"Probe","set":"Probe","year":"2026","cardNumber":"1","parallel":"Base"}]}' || echo 000)
+            submit_code=$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}" -X POST "${TEST_BASE_URL}/catalog/listing-submit" -H "Content-Type: application/json" -d '{"templateId":"probe","cardRef":"SKU-000001"}' || echo 000)
 
             echo "Attempt ${i}/${attempts}: health=${health_code} auth/providers=${providers_code} pricing=${pricing_code} listing-submit=${submit_code}"
 
             if [[ "$health_code" == "200" && "$providers_code" == "200" && "$pricing_code" == "401" && "$submit_code" == "401" ]]; then
-              echo "QA smoke checks passed."
+              echo "TEST smoke checks passed."
               exit 0
             fi
 
@@ -228,12 +176,10 @@ jobs:
             fi
           done
 
-          echo "QA smoke checks failed: expected health=200, auth/providers=200, pricing=401, listing-submit=401"
+          echo "TEST smoke checks failed: expected health=200, auth/providers=200, pricing=401, listing-submit=401"
           exit 1
 
-      - name: QA deployment summary
+      - name: TEST deployment summary
         run: |
-          echo "QA deployment completed for ref: ${{ needs.resolve-target.outputs.deploy_ref }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "TEST deployment completed for ref: ${{ needs.resolve-target.outputs.deploy_ref }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Artifact: ${{ needs.build-artifacts.outputs.artifact_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Configure QA_DEPLOY_WEBHOOK_URL secret to trigger real infrastructure deployment." >> "$GITHUB_STEP_SUMMARY"
-
