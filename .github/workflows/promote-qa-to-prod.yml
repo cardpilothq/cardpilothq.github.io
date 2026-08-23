@@ -39,8 +39,9 @@ jobs:
             const run = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: runId })
             const wf = run.data
 
-            if (wf.name !== 'Deploy Environments') {
-              core.setFailed(`Run ${runId} is for workflow "${wf.name}", expected "Deploy Environments"`)
+            const validWorkflowNames = new Set(['Deploy Environments', '.github/workflows/deploy-environments.yml'])
+            if (!validWorkflowNames.has(wf.name)) {
+              core.setFailed(`Run ${runId} is for workflow "${wf.name}", expected one of: ${Array.from(validWorkflowNames).join(', ')}`)
               return
             }
             if (wf.conclusion !== 'success') {
