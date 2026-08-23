@@ -3,9 +3,7 @@ name: Publish Frontend Environments
 on:
   push:
     branches:
-      - poc
-      - dev
-      - qa
+      - test
       - main
   workflow_dispatch:
     inputs:
@@ -13,10 +11,9 @@ on:
         description: "Target frontend environment"
         type: choice
         required: true
-        default: dev
+        default: test
         options:
-          - dev
-          - qa
+          - test
           - prod
       ref:
         description: "Branch or SHA to publish"
@@ -45,11 +42,9 @@ jobs:
         id: resolve
         shell: bash
         env:
-          DEV_PAGES_REPO: ${{ vars.DEV_PAGES_REPO }}
-          QA_PAGES_REPO: ${{ vars.QA_PAGES_REPO }}
+          TEST_PAGES_REPO: ${{ vars.TEST_PAGES_REPO }}
           PROD_PAGES_REPO: ${{ vars.PROD_PAGES_REPO }}
-          DEV_APP_URL: ${{ vars.DEV_APP_URL }}
-          QA_APP_URL: ${{ vars.QA_APP_URL }}
+          TEST_APP_URL: ${{ vars.TEST_APP_URL }}
           PROD_APP_URL: ${{ vars.PROD_APP_URL }}
         run: |
           target=""
@@ -62,11 +57,8 @@ jobs:
             fi
           else
             case "${{ github.ref_name }}" in
-              poc|dev)
-                target="dev"
-                ;;
-              qa)
-                target="qa"
+              test)
+                target="test"
                 ;;
               main)
                 target="prod"
@@ -83,18 +75,11 @@ jobs:
           app_url=""
 
           case "$target" in
-            dev)
-              publish_dir="Frontend-POC"
-              target_repo="$DEV_PAGES_REPO"
-              app_url="$DEV_APP_URL"
-              ;;
-            qa)
-              publish_dir="Frontend"
-              target_repo="$QA_PAGES_REPO"
-              app_url="$QA_APP_URL"
+            test)
+              target_repo="$TEST_PAGES_REPO"
+              app_url="$TEST_APP_URL"
               ;;
             prod)
-              publish_dir="Frontend"
               target_repo="$PROD_PAGES_REPO"
               app_url="$PROD_APP_URL"
               ;;
@@ -106,7 +91,7 @@ jobs:
 
           if [[ -z "$target_repo" ]]; then
             echo "Missing repository variable for target '$target'."
-            echo "Set repository variables DEV_PAGES_REPO / QA_PAGES_REPO / PROD_PAGES_REPO."
+            echo "Set repository variables TEST_PAGES_REPO and PROD_PAGES_REPO."
             exit 1
           fi
 
@@ -121,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: resolve-target
     environment:
-      name: ${{ needs.resolve-target.outputs.target == 'prod' && 'PROD' || needs.resolve-target.outputs.target == 'qa' && 'QA' || 'DEV-POC' }}
+      name: ${{ needs.resolve-target.outputs.target == 'prod' && 'PROD' || 'TEST' }}
       url: ${{ needs.resolve-target.outputs.app_url }}
     steps:
       - name: Checkout source
@@ -136,6 +121,25 @@ jobs:
             echo "Publish directory not found: ${{ needs.resolve-target.outputs.publish_dir }}"
             exit 1
           }
+
+      - name: Block internal or secret-like files from publish directory
+        shell: bash
+        run: |
+          publish_dir="${{ needs.resolve-target.outputs.publish_dir }}"
+          blocked=$(find "$publish_dir" -type f \( \
+            -iname "*ops_manual*" -o \
+            -iname "*access_registry*" -o \
+            -iname "*test-user*" -o \
+            -iname "*.env*" -o \
+            -iname "*secret*" -o \
+            -iname "*password*" -o \
+            -path "*/internal/*" \
+          \))
+          if [[ -n "$blocked" ]]; then
+            echo "Blocked files detected in publish directory:"
+            echo "$blocked"
+            exit 1
+          fi
 
       - name: Add .nojekyll
         shell: bash

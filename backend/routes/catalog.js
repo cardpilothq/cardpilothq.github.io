@@ -1,5 +1,6 @@
 import express from 'express'
 import multer from 'multer'
+import { getUserContextFromToken } from '../services/authService.js'
 import {
   upsertSet,
   listSets,
@@ -18,6 +19,51 @@ import {
 
 const router = express.Router()
 const upload = multer()
+
+function extractBearerToken(req) {
+  const header = String(req.headers.authorization || '').trim()
+  if (header.toLowerCase().startsWith('bearer ')) {
+    return header.slice(7).trim()
+  }
+  return ''
+}
+
+function extractCookieToken(req, cookieName = 'cardpilot_session') {
+  const raw = String(req.headers.cookie || '').trim()
+  if (!raw) return ''
+  const tokenPart = raw
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.toLowerCase().startsWith(`${cookieName.toLowerCase()}=`))
+  if (!tokenPart) return ''
+  const [, value = ''] = tokenPart.split('=')
+  try {
+    return decodeURIComponent(value).trim()
+  } catch {
+    return String(value || '').trim()
+  }
+}
+
+function extractSessionToken(req) {
+  return extractBearerToken(req) || extractCookieToken(req)
+}
+
+async function requireCatalogAuth(req, res, next) {
+  try {
+    const token = extractSessionToken(req)
+    const context = await getUserContextFromToken(token)
+    if (!context?.user?.id) {
+      res.status(401).json({ ok: false, error: 'Unauthorized', details: 'Sign in is required for catalog operations.' })
+      return
+    }
+
+    req.auth = context
+    next()
+  } catch (err) {
+    console.error('Catalog auth middleware failed:', err)
+    res.status(500).json({ ok: false, error: 'Failed to verify catalog auth.' })
+  }
+}
 
 router.get('/health', async (req, res) => {
   try {
@@ -40,7 +86,7 @@ router.get('/sets', async (req, res) => {
   }
 })
 
-router.post('/sets', async (req, res) => {
+router.post('/sets', requireCatalogAuth, async (req, res) => {
   try {
     const set = await upsertSet(req.body || {})
     res.json({ ok: true, set })
@@ -50,7 +96,7 @@ router.post('/sets', async (req, res) => {
   }
 })
 
-router.post('/checklist/bulk', async (req, res) => {
+router.post('/checklist/bulk', requireCatalogAuth, async (req, res) => {
   try {
     const set = req.body?.set || {}
     const cards = Array.isArray(req.body?.cards) ? req.body.cards : []
@@ -68,7 +114,7 @@ router.post('/checklist/bulk', async (req, res) => {
   }
 })
 
-router.post('/checklist/import-xlsx', async (req, res) => {
+router.post('/checklist/import-xlsx', requireCatalogAuth, async (req, res) => {
   try {
     const filePath = String(req.body?.filePath || '').trim()
     if (!filePath) {
@@ -89,7 +135,7 @@ router.post('/checklist/import-xlsx', async (req, res) => {
   }
 })
 
-router.post('/checklist/import-manifest', async (req, res) => {
+router.post('/checklist/import-manifest', requireCatalogAuth, async (req, res) => {
   try {
     const manifestPath = String(req.body?.manifestPath || 'data/checklists/downloads/football-checklist-downloads-manifest.json').trim()
     const result = await importChecklistManifest(manifestPath)
@@ -100,7 +146,7 @@ router.post('/checklist/import-manifest', async (req, res) => {
   }
 })
 
-router.post('/images/bulk', async (req, res) => {
+router.post('/images/bulk', requireCatalogAuth, async (req, res) => {
   try {
     const items = Array.isArray(req.body?.items) ? req.body.items : []
     if (!items.length) {
@@ -163,7 +209,7 @@ router.get('/templates', async (req, res) => {
   }
 })
 
-router.post('/templates', async (req, res) => {
+router.post('/templates', requireCatalogAuth, async (req, res) => {
   try {
     const template = await createTemplate(req.body || {})
     res.json({ ok: true, template })
@@ -173,7 +219,7 @@ router.post('/templates', async (req, res) => {
   }
 })
 
-router.post('/listing-draft', async (req, res) => {
+router.post('/listing-draft', requireCatalogAuth, async (req, res) => {
   try {
     const cardId = String(req.body?.cardId || '')
     const cardIds = req.body?.cardIds
@@ -187,7 +233,15 @@ router.post('/listing-draft', async (req, res) => {
       return
     }
 
-    const draft = await buildListingDraft({ cardId, cardIds, cardRef, chaseCardId, chaseCardRef, templateId })
+    const draft = await buildListingDraft({
+      cardId,
+      cardIds,
+      cardRef,
+      chaseCardId,
+      chaseCardRef,
+      templateId,
+      ownerUserId: req.auth.user.id
+    })
     res.json({ ok: true, ...draft })
   } catch (err) {
     console.error('Catalog listing draft failed:', err)
@@ -195,9 +249,9 @@ router.post('/listing-draft', async (req, res) => {
   }
 })
 
-router.post('/listing-submit', async (req, res) => {
+router.post('/listing-submit', requireCatalogAuth, async (req, res) => {
   try {
-    const result = await submitListingDraft(req.body || {})
+    const result = await submitListingDraft({ ...(req.body || {}), ownerUserId: req.auth.user.id })
     res.json({ ok: true, ...result })
   } catch (err) {
     console.error('Catalog listing submit failed:', err)

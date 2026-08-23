@@ -1,385 +1,72 @@
-# CardPilot HQ - GitHub Pages + Render Deployment Guide
+# CardPilotHQ Deployment (2 Environments Only)
 
-## Overview
-This guide walks you through deploying CardPilot HQ as a free, publicly accessible app:
-- **Frontend**: GitHub Pages (static hosting, free, unlimited)
-- **Backend**: Render.com (free tier, includes 750 free hours/month)
+## Environment Model
 
-**End Result:**
-- Frontend URL: `https://jayzeespc.github.io/card-automation/`
-- Backend URL: `https://cardpilot-qa.onrender.com/` (or custom domain)
+Only two environments are supported:
+- `TEST`: validation and user acceptance, wired to eBay `sandbox`
+- `PROD`: live deployment, wired to eBay `production`
 
-### Optional: Side-by-Side POC Deployment
+## Workflows
 
-To keep your main app and trial evaluation fully separate:
-- Main: CardPilot HQ (current QA/PROD)
-- POC: CardPilot HQ - POC (CardSight free/trial)
+### 1) Backend Deploy: `deploy-environments.yml`
 
-Use `setup-poc-frontend.bat` to generate a `Frontend-POC/` folder with
-`config.poc.json` applied as `config.json`, then publish that folder in a separate
-GitHub Pages repo (for example `cardpilothq-poc`).
+- Triggered by push to `test` branch.
+- Deploy target is always `TEST`.
+- Produces immutable artifact `cardpilot-bundle-<sha>`.
+- Runs TEST smoke checks after deploy.
 
----
+Required secret:
+- `TEST_DEPLOY_WEBHOOK_URL`
 
-## GitHub Actions Environment Pipeline
+Optional variable:
+- `TEST_BASE_URL` (default fallback is `https://cardpilot-qa.onrender.com`)
 
-This repository now includes a 3-environment deployment model with immutable QA-to-PROD promotion:
+### 2) Promotion: `promote-test-to-prod.yml`
 
-- `deploy-environments.yml`: deploys `DEV-POC` and `QA`, and publishes a deployment artifact (`cardpilot-bundle-<sha>`).
-- `promote-qa-to-prod.yml`: deploys `PROD` only from a successful QA run artifact.
+- Manual workflow: `Promote TEST Artifact to PROD`
+- Input: `test_run_id`
+- Verifies the selected run succeeded and had a successful `Deploy TEST` job.
+- Promotes the exact TEST artifact to PROD.
 
-### Required GitHub Setup
+Required secret:
+- `PROD_DEPLOY_WEBHOOK_URL`
 
-1. Go to **Settings → Environments** and create:
-   - `DEV-POC`
-   - `QA`
-   - `PROD`
-2. On `PROD`, add **Required reviewers** for approval gating.
-3. Add repository secrets (if using webhook-based deploy triggers):
-   - `DEV_DEPLOY_WEBHOOK_URL`
-   - `QA_DEPLOY_WEBHOOK_URL`
-   - `PROD_DEPLOY_WEBHOOK_URL`
+### 3) Frontend Publish: `publish-frontend-environments.yml`
 
-### How to Deploy
+- Push to `test` publishes TEST frontend.
+- Push to `main` publishes PROD frontend.
+- Uses only `Frontend/` as publish surface.
 
-1. Push to `poc`/`dev` branch to deploy `DEV-POC`.
-2. Push to `qa` branch to deploy `QA` and generate the artifact.
-3. Open **Actions → Promote QA Artifact to PROD**, run workflow, and enter the successful QA `run_id`.
-4. Approve the `PROD` environment prompt when GitHub requests review.
+Required variables:
+- `TEST_PAGES_REPO`
+- `PROD_PAGES_REPO`
+- `TEST_APP_URL`
+- `PROD_APP_URL`
 
-This enforces QA validation before PROD and ensures PROD deploys the exact artifact created by QA.
+Required secret:
+- `PAGES_DEPLOY_TOKEN`
 
----
+## Required GitHub Environments
 
-## Frontend: 3 Live URLs (DEV / QA / PROD)
+Create exactly:
+- `TEST`
+- `PROD`
 
-Your idea is correct: use separate live URLs per environment and promote changes forward.
+Recommended:
+- Add required reviewers on `PROD`.
 
-### Important GitHub Pages URL Rule
+## Render and Runtime Variables
 
-Example URLs like `https://cardpilothqQA.github.io/` only work if `cardpilothqQA` is a real GitHub user/org.
+### TEST (sandbox)
+- `APP_ENV=test`
+- `EBAY_ENV=sandbox`
 
-Recommended approach: keep one owner and use three repositories:
+### PROD (production)
+- `APP_ENV=prod`
+- `EBAY_ENV=production`
 
-- DEV: `https://<owner>.github.io/cardpilothq-dev/`
-- QA: `https://<owner>.github.io/cardpilothq-qa/`
-- PROD: `https://<owner>.github.io/cardpilothq-prod/`
+## Branch/Promotion Policy
 
-Example for `jayzeespc`:
-
-- DEV: `https://jayzeespc.github.io/cardpilothq-dev/`
-- QA: `https://jayzeespc.github.io/cardpilothq-qa/`
-- PROD: `https://jayzeespc.github.io/cardpilothq-prod/`
-
-### Workflow Added
-
-This repo now includes `.github/workflows/publish-frontend-environments.yml` which publishes frontend files to separate target repos:
-
-- `poc` / `dev` branch → DEV repo (publishes `Frontend-POC/`)
-- `qa` branch → QA repo (publishes `Frontend/`)
-- `main` branch → PROD repo (publishes `Frontend/`)
-
-### One-Time GitHub Setup
-
-1. Create target repositories (under the same owner):
-   - `cardpilothq-dev`
-   - `cardpilothq-qa`
-   - `cardpilothq-prod`
-2. In each target repo, enable **Pages** from `main` branch root (`/`).
-3. In this source repo (`card-automation`), set **Repository Variables**:
-   - `DEV_PAGES_REPO` = `<owner>/cardpilothq-dev`
-   - `QA_PAGES_REPO` = `<owner>/cardpilothq-qa`
-   - `PROD_PAGES_REPO` = `<owner>/cardpilothq-prod`
-   - `DEV_APP_URL` = `https://<owner>.github.io/cardpilothq-dev/`
-   - `QA_APP_URL` = `https://<owner>.github.io/cardpilothq-qa/`
-   - `PROD_APP_URL` = `https://<owner>.github.io/cardpilothq-prod/`
-4. Add one **Repository Secret** in this source repo:
-   - `PAGES_DEPLOY_TOKEN` = GitHub PAT with `repo` scope (classic token) or fine-grained token with write access to all three target repos.
-
-### Promotion Model
-
-Use this flow for frontend promotion:
-
-1. Merge feature work to `dev` (or `poc`) and validate on DEV URL.
-2. Promote same commit to `qa` and validate on QA URL.
-3. Promote approved QA commit to `main` and publish PROD URL.
-
-This gives you isolated live URLs while keeping environment promotion explicit.
-
----
-
-## Prerequisites
-- GitHub account: [jayzeespc](https://github.com/jayzeespc) ✓
-- Render.com account (free signup): https://render.com
-- Your Azure Document Intelligence credentials (API key + endpoint)
-
----
-
-## Step 1: Create GitHub Repository
-
-### Option A: Push existing code (Recommended)
-```powershell
-cd d:\Website\card-automation
-
-# Initialize git repo (if not already done)
-git init
-git add .
-git commit -m "Initial commit: CardPilot HQ with frontend and backend"
-
-# Add remote and push to GitHub
-git remote add origin https://github.com/jayzeespc/card-automation.git
-git branch -M main
-git push -u origin main
-```
-
-### Option B: Use GitHub Desktop or Web UI
-1. Go to https://github.com/new
-2. Create repo: `card-automation`
-3. Clone to your PC, copy files, commit, and push
-
----
-
-## Step 2: Deploy Frontend to GitHub Pages
-
-### 2a. Configure GitHub Pages
-1. Go to your repo: https://github.com/jayzeespc/card-automation
-2. Settings → Pages
-3. Under "Build and deployment":
-   - Source: `Deploy from a branch`
-   - Branch: `main`, folder: `/ (root)`
-   - Save
-
-**Your frontend is now live at:** `https://jayzeespc.github.io/card-automation/`
-
-### 2b. Verify Frontend is Accessible
-Open https://jayzeespc.github.io/card-automation/ in your browser. You should see the CardPilot HQ header (but backend errors since backend is not deployed yet).
-
-### 2c. (Optional) Deploy POC Frontend as a Separate Site
-
-```powershell
-cd d:\Website\card-automation
-setup-poc-frontend.bat
-```
-
-Then publish `Frontend-POC/` to a separate repo and enable GitHub Pages there.
-This gives you a dedicated POC URL without changing your main frontend.
-
----
-
-## Step 3: Deploy Backend to Render
-
-### 3a. Create a Render Account
-1. Sign up at https://render.com (free account)
-2. Connect your GitHub account for easy deployments
-
-### 3b. Deploy Backend Service
-1. From Render dashboard: **New +** → **Web Service**
-2. **Connect Repository:**
-   - Search for: `card-automation`
-   - Connect your repo
-
-3. **Configure Service:**
-   - **Name:** `cardpilot-qa` (or any name)
-   - **Environment:** `Node`
-   - **Build Command:** `cd backend && npm install`
-   - **Start Command:** `node backend/server.js`
-   - **Plan:** Free (you'll get the 750 free hours/month)
-
-4. **Add Environment Variables:**
-   - Click **Advanced** → **Add Environment Variable** for each:
-     - `APP_NAME`: `CardPilot HQ`
-     - `APP_ENV`: `qa`
-     - `AZURE_ENDPOINT`: (your Azure endpoint from Azure Portal)
-     - `AZURE_API_KEY`: (your Azure API key)
-     - `AZURE_MODEL_ID`: `prebuilt-read`
-     - `AZURE_API_VERSION`: `2024-11-30`
-     - `RATE_LIMIT_MAX_REQUESTS`: `30`
-     - `RATE_LIMIT_WINDOW_MS`: `60000`
-     - `AZURE_DAILY_LIMIT`: `500`
-     - `USE_MOCK_AI`: `false`
-     - `NODE_ENV`: `production`
-     - `CORS_ORIGIN`: `https://jayzeespc.github.io`
-
-5. **Click Deploy** (deployment takes ~2-3 minutes)
-
-### 3d. (Optional) Deploy Separate POC Backend Service
-
-Create a second Render service (for example `cardpilot-poc`) with:
-- **Build Command:** `cd backend && npm install`
-- **Start Command:** `cd backend && npm run start:poc`
-- **Plan:** Free
-
-Set POC environment variables using `backend/.env.poc.example` as reference.
-Keep these enabled for cost control:
-- `POC_BUDGET_ENABLED=true`
-- `POC_MAX_ANALYZE_CALLS=120`
-- `POC_CHEAP_MODE=true`
-- `CARDSIGHT_USE_FREE_PREFLIGHT=true`
-
-### 3c: Get Your Backend URL
-After deployment succeeds, Render gives you a URL like: `https://cardpilot-qa.onrender.com`
-
-**Test the backend:**
-```
-https://cardpilot-qa.onrender.com/health
-```
-Should return `OK`.
-
----
-
-## Step 4: Connect Frontend to Backend
-
-Now tell the frontend where the backend is by updating `Frontend/config.json`:
-
-```json
-{
-  "backendUrl": "https://cardpilot-qa.onrender.com"
-}
-```
-
-### Push this change to GitHub:
-```powershell
-cd d:\Website\card-automation
-git add Frontend/config.json
-git commit -m "Configure backend URL for GitHub Pages deployment"
-git push
-```
-
-GitHub Pages will auto-rebuild your frontend (~1 minute).
-
----
-
-## Step 5: End-to-End Testing
-
-### 5a. Test Frontend + Backend Connection
-Open https://jayzeespc.github.io/card-automation/
-
-You should see:
-- ✅ CardPilot HQ title with [QA] badge (orange)
-- ✅ No backend errors in browser console
-- ✅ "AI extraction enabled" message
-
-### 5b. Test Card Import
-1. Use the upload button to import a small batch (3-5 cards)
-2. Monitor for:
-   - ✅ OCR calls succeed (no 429 rate limit errors)
-   - ✅ SKU counter increments correctly
-   - ✅ Duplicate rows merge as expected
-   - ✅ Inventory saves to backend
-
-### 5c. Test Inventory Persistence
-Check Render backend logs for:
-```
-POST /inventory/bulk { inserted: X, updated: Y, total: Z }
-```
-
----
-
-## Step 6: Optional Customizations
-
-### Use a Custom Domain (Optional)
-If you own a domain (e.g., `cardpilothq.com`):
-
-1. **GitHub Pages custom domain:**
-   - Settings → Pages → Custom Domain
-   - Add your domain
-   - GitHub will give you DNS settings
-
-2. **Render custom domain:**
-   - Service Settings → Custom Domain
-   - Add your domain
-
-This makes URLs prettier but is optional for free tier.
-
----
-
-## Important Notes
-
-### Render Free Tier Limitations
-- **Sleeps after 15 min of inactivity:** First request after sleep takes ~30 sec to wake up
-- **750 free hours/month:** Enough for continuous running (~1000 hours in 30 days)
-- **No custom domain included:** But you can add one for free
-
-### GitHub Pages
-- Limits: 1 GB max repo size, 100 GB/month bandwidth
-- Static files only (perfect for your frontend)
-- Automatically rebuilds on push to `main`
-
-### Local Development
-After deployment, local development still works:
-```powershell
-# Terminal 1: Backend
-cd backend
-npm run start:qa
-
-# Terminal 2: Frontend
-# Open http://localhost:3001 in browser
-# Frontend will auto-detect backend on localhost:3000
-```
-
----
-
-## Troubleshooting
-
-### "Backend not found" Error
-- Check Render deployment logs: Render dashboard → Service → Logs
-- Verify `AZURE_API_KEY` is set correctly
-- Ensure `CORS_ORIGIN` includes your GitHub Pages URL
-
-### "Rate limit 429" Errors
-- Backend is working but frontend is sending too many requests
-- Make sure frontend code has `OCR_MIN_INTERVAL_MS = 2500` and `IMPORT_AI_CONCURRENCY = 1`
-- Check Render logs for `Rate limit exceeded` messages
-
-### GitHub Pages Shows Old Version
-- Clear browser cache (Ctrl+Shift+Delete)
-- Hard refresh (Ctrl+Shift+R on Windows)
-- GitHub Pages caches for ~5 minutes
-
-### Render Wakes Up Slow
-- This is normal on free tier. First request after sleep takes 30 sec.
-- Can be avoided by using a paid tier ($7/month) or keeping backend always active with monitoring
-
----
-
-## Next Steps
-
-Once live, you can:
-1. ✅ Test from any device on your home Wi-Fi
-2. ✅ Test from your phone on mobile data
-3. ✅ Share the URL with external testers (if you set `BETA_ACCESS_TOKEN`)
-4. ✅ Upgrade to Render paid tier if you need always-on performance
-
----
-
-## Quick Reference Commands
-
-```powershell
-# Initialize git and push to GitHub
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/jayzeespc/card-automation.git
-git push -u origin main
-
-# Update config and redeploy
-git add Frontend/config.json
-git commit -m "Update backend URL"
-git push
-
-# Check deployment status
-# GitHub: https://github.com/jayzeespc/card-automation/deployments
-# Render: https://dashboard.render.com
-```
-
----
-
-## Support
-
-If you encounter issues:
-1. Check Render logs: https://dashboard.render.com
-2. Check GitHub Pages build logs: Settings → Pages → Build logs (if deployment fails)
-3. Check browser console errors (F12 → Console tab)
-4. Verify all environment variables are set on Render
-
-**Deployment complete! 🚀**
+1. Validate all changes in TEST first.
+2. Promote only tested artifacts to PROD.
+3. No direct PROD deploy from unverified commits.
