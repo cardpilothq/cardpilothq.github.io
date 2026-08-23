@@ -217,8 +217,7 @@ async function updateServerStatus() {
   
   if (isRunning) {
     statusDot.classList.add('running')
-    const runningLabel = backendEnvironmentLabel || (isHostedApp ? 'Hosted' : 'Local')
-    statusText.textContent = `Server Running (${runningLabel})`
+    statusText.textContent = 'Server Running'
     if (isHostedApp) {
       serverToggleBtn.textContent = 'Hosted Mode'
       serverToggleBtn.disabled = true
@@ -230,7 +229,7 @@ async function updateServerStatus() {
     }
   } else {
     statusDot.classList.remove('running')
-    statusText.textContent = isHostedApp ? 'Backend Unreachable' : 'Server Offline'
+    statusText.textContent = 'Server Offline'
     serverToggleBtn.textContent = isHostedApp ? 'Hosted Mode' : 'Start Server'
     serverToggleBtn.disabled = isHostedApp
     serverToggleBtn.classList.remove('running')
