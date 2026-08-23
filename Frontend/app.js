@@ -1,6 +1,6 @@
 let BACKEND_URL = null;
 const BACKEND_PORTS = [3000, 3001, 3002];
-const FRONTEND_BUILD = '20260823a';
+const FRONTEND_BUILD = '20260823b';
 const ALLOWED_CARD_YEARS = ['2025', '2026', '2025-2026'];
 const SKU_COMMITTED_COUNTER_KEY = 'cardAutoCommittedSkuCounter';
 const ACTIVE_SPORT_KEY = 'cardAutoActiveSport';
@@ -2111,6 +2111,25 @@ function cloneProviderCatalog() {
   return providers.map((provider) => ({ ...provider }))
 }
 
+function syncGoogleAuthButtons() {
+  const supportsGoogle = cloneProviderCatalog().some((provider) => String(provider?.key || '').toLowerCase() === 'google')
+
+  if (googleLoginBtn) {
+    googleLoginBtn.style.display = supportsGoogle ? '' : 'none'
+    googleLoginBtn.disabled = !supportsGoogle
+    if (!supportsGoogle) {
+      googleLoginBtn.setAttribute('title', 'Google sign-in is not enabled in this environment.')
+    } else {
+      googleLoginBtn.removeAttribute('title')
+    }
+  }
+
+  if (googleLinkBtn) {
+    googleLinkBtn.style.display = supportsGoogle ? '' : 'none'
+    googleLinkBtn.disabled = !supportsGoogle
+  }
+}
+
 function getStoredAuthToken() {
   let tokenFromSession = ''
   let tokenFromLocal = ''
@@ -2463,6 +2482,7 @@ function completeEbayOAuthFromUrl() {
 function renderProfileUi() {
   updateAccountButtonLabel()
   applyAuthLandingMode()
+  syncGoogleAuthButtons()
   populateConnectionProviderOptions(String(profileConnectionProviderSelect?.value || 'ebay'))
   toggleCustomProviderRow()
   populateConnectionAuthTypeOptions()
@@ -2575,10 +2595,12 @@ async function ensureAuthProviders() {
     const { response, data } = await authApiFetch('/auth/providers', { method: 'GET' }, { allowUnauthorized: true })
     if (response.ok && Array.isArray(data?.providers) && data.providers.length) {
       authState.providers = data.providers
+      syncGoogleAuthButtons()
       if (!authState.user) renderProfileUi()
     }
   } catch (err) {
     console.warn('Could not load auth provider catalog', err)
+    syncGoogleAuthButtons()
   }
 }
 
@@ -5505,8 +5527,33 @@ document.addEventListener('keydown', (e) => {
 })
 async function resolveBackendUrl() {
   const isLocalhost = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/i.test(String(window.location?.hostname || ''))
+  const isHosted = typeof window !== 'undefined'
+    && /^https?:/i.test(String(window.location?.protocol || ''))
+    && !isLocalhost
 
-  // Step 1: For local development, prefer the current origin or localhost probes.
+  // Step 1: Check explicit backend URL in config.json first for hosted deployments.
+  try {
+    const res = await fetch('config.json')
+    if (res.ok) {
+      const cfg = await res.json()
+      if (cfg.backendUrl && cfg.backendUrl.trim()) {
+        const configured = String(cfg.backendUrl).trim()
+        try {
+          const health = await fetch(`${configured}/health`, { method: 'GET' })
+          if (health.ok) {
+            console.log(`[Backend] Using URL from config.json: ${configured}`)
+            return configured
+          }
+        } catch {
+          // If health check fails, continue to additional fallbacks.
+        }
+      }
+    }
+  } catch (err) {
+    // config.json not found or parse error; continue to next method
+  }
+
+  // Step 2: For local development, prefer the current origin or localhost probes.
   if (isLocalhost) {
     if (typeof window !== 'undefined' && /^https?:/i.test(String(window.location?.origin || ''))) {
       try {
@@ -5534,33 +5581,21 @@ async function resolveBackendUrl() {
     }
   }
 
-  // Step 2: Probe localhost ports even when origin isn't localhost
+  // Step 3: Probe localhost ports when running non-hosted surfaces
   // (for LAN/file-hosted frontend talking to a local backend).
-  for (const port of BACKEND_PORTS) {
-    const url = `http://localhost:${port}`
-    try {
-      const res = await fetch(`${url}/health`, { method: 'GET' })
-      if (res.ok) {
-        console.log(`[Backend] Found on localhost:${port}`)
-        return url
-      }
-    } catch (err) {
-      // ignore and continue
-    }
-  }
-
-  // Step 3: Check for explicit backend URL in config.json (for GitHub Pages + Render)
-  try {
-    const res = await fetch('config.json')
-    if (res.ok) {
-      const cfg = await res.json()
-      if (cfg.backendUrl && cfg.backendUrl.trim()) {
-        console.log(`[Backend] Using URL from config.json: ${cfg.backendUrl}`)
-        return cfg.backendUrl
+  if (!isHosted) {
+    for (const port of BACKEND_PORTS) {
+      const url = `http://localhost:${port}`
+      try {
+        const res = await fetch(`${url}/health`, { method: 'GET' })
+        if (res.ok) {
+          console.log(`[Backend] Found on localhost:${port}`)
+          return url
+        }
+      } catch (err) {
+        // ignore and continue
       }
     }
-  } catch (err) {
-    // config.json not found or parse error; continue to next method
   }
 
   // Step 4: For HTTPS deployments, try same origin (backend on same host/port)
@@ -5577,18 +5612,25 @@ async function resolveBackendUrl() {
   }
 
   // Step 5: Local development fallback - probe localhost ports
-  for (const port of BACKEND_PORTS) {
-    const url = `http://localhost:${port}`
-    try {
-      const res = await fetch(`${url}/health`, { method: "GET" })
-      if (res.ok) {
-        console.log(`[Backend] Found on localhost:${port}`)
-        return url
+  if (!isHosted) {
+    for (const port of BACKEND_PORTS) {
+      const url = `http://localhost:${port}`
+      try {
+        const res = await fetch(`${url}/health`, { method: "GET" })
+        if (res.ok) {
+          console.log(`[Backend] Found on localhost:${port}`)
+          return url
+        }
+      } catch (err) {
+        // ignore and try next port
       }
-    } catch (err) {
-      // ignore and try next port
     }
   }
+
+  if (isHosted) {
+    throw new Error('Hosted frontend could not resolve backend URL from config.json or same-origin health.')
+  }
+
   throw new Error(`Unable to reach backend on ports: ${BACKEND_PORTS.join(", ")}`)
 }
 
