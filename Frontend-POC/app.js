@@ -38,10 +38,15 @@ async function initializeAppBadge() {
     const data = await res.json()
     const badge = document.getElementById('envBadge')
     if (badge && data?.app?.environment) {
-      badge.textContent = `[${data.app.environment.toUpperCase()}]`
-      if (data.app.environment === 'qa') {
+      const env = String(data.app.environment || '').toLowerCase()
+      const isTestLike = env === 'test' || env === 'qa'
+      const isProdLike = env === 'prod' || env === 'production' || env === 'live'
+      const badgeLabel = isTestLike ? 'TEST' : (isProdLike ? 'PROD' : env.toUpperCase())
+
+      badge.textContent = `[${badgeLabel}]`
+      if (isTestLike) {
         badge.style.color = '#ff8800'
-      } else if (data.app.environment === 'prod') {
+      } else if (isProdLike) {
         badge.style.color = '#00aa00'
       }
     }

@@ -1,11 +1,13 @@
 let BACKEND_URL = null;
 const BACKEND_PORTS = [3000, 3001, 3002];
-const FRONTEND_BUILD = '20260621k';
+const FRONTEND_BUILD = '20260823a';
 const ALLOWED_CARD_YEARS = ['2025', '2026', '2025-2026'];
 const SKU_COMMITTED_COUNTER_KEY = 'cardAutoCommittedSkuCounter';
 const ACTIVE_SPORT_KEY = 'cardAutoActiveSport';
 const ACTIVE_PAGE_KEY = 'cardAutoActivePage';
 const AUTH_TOKEN_KEY = 'cardPilotAuthToken';
+const AUTH_SESSION_TOKEN_KEY = 'cardPilotAuthTokenSession';
+const AUTH_REMEMBER_KEY = 'cardPilotRememberMe';
 const IMPORT_IN_PROGRESS_KEY = 'cardAutoImportInProgress';
 const SCAN_DRAFT_KEY = 'cardAutoScanDraft';
 const SCAN_DRAFT_DB_NAME = 'cardAutoScanDraftDB';
@@ -81,10 +83,15 @@ async function initializeAppBadge() {
     const data = await res.json()
     const badge = document.getElementById('envBadge')
     if (badge && data?.app?.environment) {
-      badge.textContent = `[${data.app.environment.toUpperCase()}]`
-      if (data.app.environment === 'qa') {
+      const env = String(data.app.environment || '').toLowerCase()
+      const isTestLike = env === 'test' || env === 'qa'
+      const isProdLike = env === 'prod' || env === 'production' || env === 'live'
+      const badgeLabel = isTestLike ? 'TEST' : (isProdLike ? 'PROD' : env.toUpperCase())
+
+      badge.textContent = `[${badgeLabel}]`
+      if (isTestLike) {
         badge.style.color = '#ff8800'
-      } else if (data.app.environment === 'prod') {
+      } else if (isProdLike) {
         badge.style.color = '#00aa00'
       }
     }
@@ -121,8 +128,11 @@ const navScanBtn = document.getElementById("navScanBtn");
 const navInventoryBtn = document.getElementById("navInventoryBtn");
 const navPricingBtn = document.getElementById("navPricingBtn");
 const navListingsBtn = document.getElementById("navListingsBtn");
+const navChecklistBtn = document.getElementById("navChecklistBtn");
 const navProfileBtn = document.getElementById("navProfileBtn");
 const accountProfileBtn = document.getElementById("accountProfileBtn");
+const appHeader = document.querySelector('.header');
+const appNav = document.querySelector('.app-nav');
 const homeGoScanBtn = document.getElementById("homeGoScanBtn");
 const homeGoInventoryBtn = document.getElementById("homeGoInventoryBtn");
 const homePage = document.getElementById("homePage");
@@ -130,6 +140,7 @@ const scanPage = document.getElementById("scanPage");
 const inventoryPage = document.getElementById("inventoryPage");
 const pricingPage = document.getElementById("pricingPage");
 const listingsPage = document.getElementById("listingsPage");
+const checklistPage = document.getElementById("checklistPage");
 const profilePage = document.getElementById("profilePage");
 const saveInventoryBtn = document.getElementById("saveInventoryBtn");
 const refreshInventoryBtn = document.getElementById("refreshInventoryBtn");
@@ -150,6 +161,28 @@ const clearSportInventoryBtn = document.getElementById("clearSportInventoryBtn")
 const clearAllInventoryBtn = document.getElementById("clearAllInventoryBtn");
 const discardScanDraftBtn = document.getElementById("discardScanDraftBtn");
 const inventoryStatus = document.getElementById("inventoryStatus");
+const inventoryDetailModal = document.getElementById("inventoryDetailModal");
+const closeInventoryDetailModalBtn = document.getElementById("closeInventoryDetailModalBtn");
+const cancelInventoryDetailBtn = document.getElementById("cancelInventoryDetailBtn");
+const saveInventoryDetailBtn = document.getElementById("saveInventoryDetailBtn");
+const inventoryDetailSummary = document.getElementById("inventoryDetailSummary");
+const inventoryDetailSportInput = document.getElementById("inventoryDetailSportInput");
+const inventoryDetailSkuInput = document.getElementById("inventoryDetailSkuInput");
+const inventoryDetailNameInput = document.getElementById("inventoryDetailNameInput");
+const inventoryDetailTeamInput = document.getElementById("inventoryDetailTeamInput");
+const inventoryDetailPositionInput = document.getElementById("inventoryDetailPositionInput");
+const inventoryDetailSetInput = document.getElementById("inventoryDetailSetInput");
+const inventoryDetailYearInput = document.getElementById("inventoryDetailYearInput");
+const inventoryDetailCardNumberInput = document.getElementById("inventoryDetailCardNumberInput");
+const inventoryDetailQuantityInput = document.getElementById("inventoryDetailQuantityInput");
+const inventoryDetailParallelInput = document.getElementById("inventoryDetailParallelInput");
+const inventoryDetailRookieSelect = document.getElementById("inventoryDetailRookieSelect");
+const inventoryDetailAutographSelect = document.getElementById("inventoryDetailAutographSelect");
+const inventoryDetailPickFromInput = document.getElementById("inventoryDetailPickFromInput");
+const inventoryDetailFilenameInput = document.getElementById("inventoryDetailFilenameInput");
+const inventoryDetailPictureUrlInput = document.getElementById("inventoryDetailPictureUrlInput");
+const inventoryDetailTitleInput = document.getElementById("inventoryDetailTitleInput");
+const inventoryDetailDescriptionInput = document.getElementById("inventoryDetailDescriptionInput");
 const listingTemplateSelect = document.getElementById("listingTemplateSelect");
 const listingCardIdInput = document.getElementById("listingCardIdInput");
 const listingChaseCardIdInput = document.getElementById("listingChaseCardIdInput");
@@ -199,10 +232,23 @@ const profileWorkspace = document.getElementById("profileWorkspace");
 const signupDisplayNameInput = document.getElementById("signupDisplayNameInput");
 const signupEmailInput = document.getElementById("signupEmailInput");
 const signupPasswordInput = document.getElementById("signupPasswordInput");
+const rememberMeSignupCheckbox = document.getElementById("rememberMeSignupCheckbox");
 const signupSubmitBtn = document.getElementById("signupSubmitBtn");
 const loginEmailInput = document.getElementById("loginEmailInput");
 const loginPasswordInput = document.getElementById("loginPasswordInput");
+const rememberMeCheckbox = document.getElementById("rememberMeCheckbox");
 const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+const googleLoginBtn = document.getElementById("googleLoginBtn");
+const showForgotPasswordLink = document.getElementById("showForgotPasswordLink");
+const showSignupLink = document.getElementById("showSignupLink");
+const backToLoginFromSignupLink = document.getElementById("backToLoginFromSignupLink");
+const backToLoginFromResetLink = document.getElementById("backToLoginFromResetLink");
+const authPortalTitle = document.getElementById("authPortalTitle");
+const authPortalSubtitle = document.getElementById("authPortalSubtitle");
+const authLoginPortal = document.getElementById("authLoginPortal");
+const authSignupPortal = document.getElementById("authSignupPortal");
+const authResetPortal = document.getElementById("authResetPortal");
+const profileAuthStatus = document.getElementById("profileAuthStatus");
 const recoveryIdentifierInput = document.getElementById("recoveryIdentifierInput");
 const findAccountBtn = document.getElementById("findAccountBtn");
 const recoveryEmailInput = document.getElementById("recoveryEmailInput");
@@ -213,6 +259,7 @@ const profileAccountSummary = document.getElementById("profileAccountSummary");
 const profileDisplayNameInput = document.getElementById("profileDisplayNameInput");
 const saveProfileBtn = document.getElementById("saveProfileBtn");
 const logoutBtn = document.getElementById("logoutBtn");
+const googleLinkBtn = document.getElementById("googleLinkBtn");
 const profileConnectionProviderSelect = document.getElementById("profileConnectionProviderSelect");
 const profileCustomProviderRow = document.getElementById("profileCustomProviderRow");
 const profileCustomProviderInput = document.getElementById("profileCustomProviderInput");
@@ -224,6 +271,71 @@ const profileConnectionNotesInput = document.getElementById("profileConnectionNo
 const saveConnectionBtn = document.getElementById("saveConnectionBtn");
 const resetConnectionFormBtn = document.getElementById("resetConnectionFormBtn");
 const profileConnectionsList = document.getElementById("profileConnectionsList");
+const checklistStatus = document.getElementById("checklistStatus");
+const checklistImportYear = document.getElementById("checklistImportYear");
+const checklistImportBrand = document.getElementById("checklistImportBrand");
+const checklistImportSetName = document.getElementById("checklistImportSetName");
+const checklistImportFile = document.getElementById("checklistImportFile");
+const checklistChooseFileBtn = document.getElementById("checklistChooseFileBtn");
+const checklistImportBtn = document.getElementById("checklistImportBtn");
+const checklistImportUrl = document.getElementById("checklistImportUrl");
+const checklistImportUrlBtn = document.getElementById("checklistImportUrlBtn");
+const checklistPasteInput = document.getElementById("checklistPasteInput");
+const oddsImportFile = document.getElementById("oddsImportFile");
+const oddsChooseFileBtn = document.getElementById("oddsChooseFileBtn");
+const oddsImportBtn = document.getElementById("oddsImportBtn");
+const oddsImportUrl = document.getElementById("oddsImportUrl");
+const oddsImportUrlBtn = document.getElementById("oddsImportUrlBtn");
+const oddsPasteInput = document.getElementById("oddsPasteInput");
+const checklistYearFilter = document.getElementById("checklistYearFilter");
+const checklistSetSearchInput = document.getElementById("checklistSetSearchInput");
+const checklistSearchInput = document.getElementById("checklistSearchInput");
+const checklistOddsCategoryFilter = document.getElementById("checklistOddsCategoryFilter");
+const checklistRookieFilter = document.getElementById("checklistRookieFilter");
+const checklistCustomSortField = document.getElementById("checklistCustomSortField");
+const checklistCustomSortDirection = document.getElementById("checklistCustomSortDirection");
+const checklistCustomFilterField = document.getElementById("checklistCustomFilterField");
+const checklistCustomFilterOperator = document.getElementById("checklistCustomFilterOperator");
+const checklistCustomFilterValue = document.getElementById("checklistCustomFilterValue");
+const checklistCustomFilterClearBtn = document.getElementById("checklistCustomFilterClearBtn");
+const checklistViewTabBtn = document.getElementById("checklistViewTabBtn");
+const oddsViewTabBtn = document.getElementById("oddsViewTabBtn");
+const checklistDataPanel = document.getElementById("checklistDataPanel");
+const oddsDataPanel = document.getElementById("oddsDataPanel");
+const checklistDataBody = document.getElementById("checklistDataBody");
+const checklistOddsBody = document.getElementById("checklistOddsBody");
+const checklistSortHeaders = Array.from(document.querySelectorAll('#checklistDataTable thead th[data-sort-key]'));
+const oddsSortHeaders = Array.from(document.querySelectorAll('#oddsDataTable thead th[data-sort-key]'));
+const checklistSetsBody = document.getElementById("checklistSetsBody");
+const refreshChecklistCatalogBtn = document.getElementById("refreshChecklistCatalogBtn");
+const refreshChecklistSetDetailBtn = document.getElementById("refreshChecklistSetDetailBtn");
+const openToppsChecklistBtn = document.getElementById("openToppsChecklistBtn");
+const openToppsOddsBtn = document.getElementById("openToppsOddsBtn");
+const syncOpenChecklistBtn = document.getElementById("syncOpenChecklistBtn");
+const checklistSetModal = document.getElementById("checklistSetModal");
+const closeChecklistSetModalBtn = document.getElementById("closeChecklistSetModalBtn");
+const checklistSetModalTitle = document.getElementById("checklistSetModalTitle");
+const checklistImportProfileModal = document.getElementById("checklistImportProfileModal");
+const closeChecklistImportProfileModalBtn = document.getElementById("closeChecklistImportProfileModalBtn");
+const cancelChecklistImportProfileBtn = document.getElementById("cancelChecklistImportProfileBtn");
+const saveChecklistImportProfileBtn = document.getElementById("saveChecklistImportProfileBtn");
+const checklistImportProfileSummary = document.getElementById("checklistImportProfileSummary");
+const checklistImportProfileSetName = document.getElementById("checklistImportProfileSetName");
+const checklistImportProfileYear = document.getElementById("checklistImportProfileYear");
+const checklistImportProfileManufacturer = document.getElementById("checklistImportProfileManufacturer");
+const checklistImportProfileCustomColumns = document.getElementById("checklistImportProfileCustomColumns");
+const checklistImportProfileNotes = document.getElementById("checklistImportProfileNotes");
+const checklistOwnedCardModal = document.getElementById("checklistOwnedCardModal");
+const closeChecklistOwnedCardModalBtn = document.getElementById("closeChecklistOwnedCardModalBtn");
+const cancelChecklistOwnedCardBtn = document.getElementById("cancelChecklistOwnedCardBtn");
+const saveChecklistOwnedCardBtn = document.getElementById("saveChecklistOwnedCardBtn");
+const checklistOwnedCardSummary = document.getElementById("checklistOwnedCardSummary");
+const checklistOwnedSkuInput = document.getElementById("checklistOwnedSkuInput");
+const checklistOwnedQuantityInput = document.getElementById("checklistOwnedQuantityInput");
+const checklistOwnedParallelDisplay = document.getElementById("checklistOwnedParallelDisplay");
+const checklistOwnedRookieSelect = document.getElementById("checklistOwnedRookieSelect");
+const checklistOwnedAutographSelect = document.getElementById("checklistOwnedAutographSelect");
+const checklistOwnedNotesInput = document.getElementById("checklistOwnedNotesInput");
 
 let viewerScale = 1;
 let viewerOffsetX = 0;
@@ -249,16 +361,37 @@ let scanDraftDbPromise = null;
 let scanDraftRestoreInProgress = false;
 let forceSkuResetOnNextImport = false;
 let activeFeedbackType = 'feedback';
+let checklistSetsCache = [];
+let checklistCardsCache = [];
+let checklistOddsCache = [];
+let checklistVisibleRowsCache = [];
+let checklistSortState = { key: 'cardNumber', direction: 'asc' }
+let oddsSortState = { key: 'category', direction: 'asc' }
+let activeChecklistView = 'checklist';
+let activeChecklistSetId = '';
+let activeChecklistSetMeta = null;
+let checklistOwnedCardKeys = new Set()
+let pendingChecklistOwnedCardResolve = null
+let pendingChecklistOwnedCardItem = null
+let pendingChecklistImportProfileContext = null
+let pendingChecklistImportProfileResolve = null
+let selectedChecklistFile = null;
+let selectedOddsFile = null;
 const CLIENT_LOG_LIMIT = 120;
 const clientRuntimeLogs = [];
 const LISTING_DRAFT_DEFAULT_MESSAGE = 'Select a template and enter a card ID or SKU to generate a listing draft.'
 const LISTING_SAFE_PLACEHOLDER = 'N/A'
 const PRICING_STORAGE_KEY = 'cardPilotPricingById'
 const PRICING_ESTIMATE_CACHE_KEY = 'cardPilotPricingEstimateByFingerprint'
+const CHECKLIST_IMPORT_PROFILE_STORAGE_KEY = 'cardPilotChecklistImportProfiles'
+const CHECKLIST_OWNED_STORAGE_KEY = 'cardPilotChecklistOwnedBySet'
+const OPEN_CHECKLIST_SUPPORTED_SPORTS = new Set(['Baseball'])
 let inventoryRowsCache = []
 let inventoryEditingRowId = ''
 let pricingEstimateByFingerprint = {}
+let activeInventoryDetailId = ''
 let authToken = ''
+let rememberMeEnabled = false
 let authState = {
   user: null,
   session: null,
@@ -267,6 +400,22 @@ let authState = {
 }
 let editingConnectionProviderSlug = ''
 let oauthReturnContextHandled = false
+const APP_PAGES = ['home', 'scan', 'inventory', 'pricing', 'listings', 'checklist', 'profile']
+
+function isUserAuthenticated() {
+  return Boolean(authState?.user?.id)
+}
+
+function normalizeAppPage(value) {
+  const page = String(value || '').trim().toLowerCase()
+  return APP_PAGES.includes(page) ? page : 'home'
+}
+
+function resolveAllowedPage(page) {
+  const safePage = normalizeAppPage(page)
+  if (safePage === 'profile') return 'profile'
+  return isUserAuthenticated() ? safePage : 'profile'
+}
 
 function sanitizeSubmitPayload(value, path = '', replacements = []) {
   if (value === null || value === undefined) {
@@ -332,7 +481,8 @@ function applyOAuthReturnContext() {
   if (!context.oauth) return
 
   oauthReturnContextHandled = true
-  setActivePage(context.page === 'profile' ? 'profile' : getInitialActivePage())
+  const requestedPage = normalizeAppPage(context.page || (context.oauth.includes('success') ? 'home' : 'profile'))
+  setActivePage(requestedPage)
   showProfileStatus(
     context.oauthMessage || (context.oauth === 'ebay-success' ? 'eBay OAuth connected successfully.' : 'OAuth flow finished.'),
     context.oauth.includes('error')
@@ -382,6 +532,1578 @@ function showListingStatus(message, isError = false) {
   listingStatus.textContent = message || ''
 }
 
+function showChecklistStatus(message, isError = false) {
+  if (!checklistStatus) return
+  checklistStatus.style.display = message ? 'block' : 'none'
+  checklistStatus.style.color = isError ? '#a52020' : '#3f4f8e'
+  checklistStatus.textContent = message || ''
+}
+
+function normalizeChecklistYear(value) {
+  const year = String(value || '').trim()
+  if (ALLOWED_CARD_YEARS.includes(year)) return year
+  return ''
+}
+
+function checklistSetLabel(item = {}) {
+  const year = String(item?.year || '').trim()
+  const brand = String(item?.brand || '').trim()
+  const setName = String(item?.setName || '').trim()
+  const head = [year, brand, setName].filter(Boolean).join(' ')
+  if (!head) return item?.id || 'Unknown Set'
+  const counts = []
+  if (Number(item?.checklistCount || 0) > 0) counts.push(`${Number(item.checklistCount)} cards`)
+  if (Number(item?.oddsCount || 0) > 0) counts.push(`${Number(item.oddsCount)} odds`)
+  return counts.length ? `${head} (${counts.join(', ')})` : head
+}
+
+function setChecklistView(view = 'checklist') {
+  activeChecklistView = String(view || '').toLowerCase() === 'odds' ? 'odds' : 'checklist'
+
+  if (checklistViewTabBtn) {
+    const isActive = activeChecklistView === 'checklist'
+    checklistViewTabBtn.classList.toggle('active', isActive)
+    checklistViewTabBtn.setAttribute('aria-selected', isActive ? 'true' : 'false')
+  }
+  if (oddsViewTabBtn) {
+    const isActive = activeChecklistView === 'odds'
+    oddsViewTabBtn.classList.toggle('active', isActive)
+    oddsViewTabBtn.setAttribute('aria-selected', isActive ? 'true' : 'false')
+  }
+  checklistDataPanel?.classList.toggle('active', activeChecklistView === 'checklist')
+  oddsDataPanel?.classList.toggle('active', activeChecklistView === 'odds')
+}
+
+function isRookieFlag(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return false
+  return /^(yes|y|true|1|rookie|rc)$/i.test(raw)
+}
+
+function normalizeHeader(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+function normalizeCell(value) {
+  return String(value || '').replace(/\r/g, '').trim()
+}
+
+function splitDelimitedLine(line, delimiter = ',') {
+  const out = []
+  let current = ''
+  let quoteOpen = false
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i]
+    if (ch === '"') {
+      if (quoteOpen && line[i + 1] === '"') {
+        current += '"'
+        i += 1
+      } else {
+        quoteOpen = !quoteOpen
+      }
+      continue
+    }
+    if (ch === delimiter && !quoteOpen) {
+      out.push(current)
+      current = ''
+      continue
+    }
+    current += ch
+  }
+  out.push(current)
+  return out
+}
+
+function parseDelimitedRows(rawText = '') {
+  const text = String(rawText || '').replace(/^\uFEFF/, '')
+  const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean)
+  if (!lines.length) return []
+
+  const delimiter = lines[0].includes('\t') ? '\t' : ','
+  return lines.map((line) => splitDelimitedLine(line, delimiter).map((cell) => normalizeCell(cell)))
+}
+
+function rowValueByAliases(row = {}, aliases = []) {
+  const keys = Object.keys(row)
+  for (const alias of aliases) {
+    const aliasKey = normalizeHeader(alias)
+    const key = keys.find((candidate) => normalizeHeader(candidate) === aliasKey)
+    if (!key) continue
+    const value = normalizeCell(row[key])
+    if (value) return value
+  }
+  return ''
+}
+
+function rowsToObjects(parsedRows = []) {
+  if (!parsedRows.length) return []
+  const [first = [], ...rest] = parsedRows
+  const normalizedHeaders = first.map((header) => normalizeHeader(header))
+  const headerLike = normalizedHeaders.some((header) => [
+    'cardnumber', 'player', 'name', 'team', 'parallel', 'insert', 'odds', 'category', 'packrate'
+  ].includes(header))
+
+  const headers = headerLike
+    ? first.map((header, index) => String(header || `column${index + 1}`).trim() || `column${index + 1}`)
+    : first.map((_, index) => `column${index + 1}`)
+  const rows = headerLike ? rest : parsedRows
+
+  return rows.map((cells) => {
+    const out = {}
+    headers.forEach((header, index) => {
+      out[header] = normalizeCell(cells[index] || '')
+    })
+    return out
+  }).filter((row) => Object.values(row).some((value) => String(value || '').trim()))
+}
+
+function positionalChecklistValues(row = {}) {
+  const c1 = normalizeCell(row?.column1)
+  const c2 = normalizeCell(row?.column2)
+  const c3 = normalizeCell(row?.column3)
+  const c4 = normalizeCell(row?.column4)
+  return {
+    cardNumber: c1,
+    player: c2,
+    team: c3,
+    rookie: c4
+  }
+}
+
+function normalizeRookieValue(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  if (/^(yes|y|true|1|rookie|rc)$/i.test(raw)) return 'Yes'
+  if (/^(no|n|false|0)$/i.test(raw)) return 'No'
+  return raw
+}
+
+function parseChecklistRowsFromRaw(rawText = '') {
+  const parsedRows = parseDelimitedRows(rawText)
+  const hasMultiColumnRows = parsedRows.some((cells) => {
+    const nonEmpty = (Array.isArray(cells) ? cells : []).filter((cell) => normalizeCell(cell))
+    return nonEmpty.length >= 2
+  })
+  const objects = rowsToObjects(parsedRows)
+  const fromDelimited = objects.map((row) => ({
+    cardNumber: rowValueByAliases(row, ['card number', 'card#', 'card #', 'number', '#', 'card']) || positionalChecklistValues(row).cardNumber,
+    player: rowValueByAliases(row, ['player', 'name']) || positionalChecklistValues(row).player,
+    team: rowValueByAliases(row, ['team', 'club']) || positionalChecklistValues(row).team,
+    position: rowValueByAliases(row, ['position', 'pos']),
+    parallel: rowValueByAliases(row, ['parallel', 'variation', 'variant']),
+    rookie: normalizeRookieValue(rowValueByAliases(row, ['rookie', 'rc']) || positionalChecklistValues(row).rookie)
+  })).filter((row) => row.player || row.cardNumber)
+
+  if (hasMultiColumnRows && fromDelimited.length) return fromDelimited
+
+  const lines = String(rawText || '').split(/\n+/).map((line) => line.trim()).filter(Boolean)
+  const rows = []
+  const seen = new Set()
+  for (const line of lines) {
+    const match = line.match(/^([A-Z]{1,5}-\d{1,4}[A-Z]?|\d{1,4}[A-Z]?)(.+)$/)
+    if (!match) continue
+    const cardNumber = normalizeCell(match[1])
+    const body = normalizeCell(match[2])
+    if (!cardNumber || !body) continue
+    const key = `${cardNumber}|${body.toLowerCase()}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    rows.push({ cardNumber, player: body, team: '', position: '', parallel: '', rookie: '' })
+  }
+  return rows
+}
+
+function parseOddsRowsFromRaw(rawText = '') {
+  const parsedRows = parseDelimitedRows(rawText)
+  const objects = rowsToObjects(parsedRows)
+  return objects.map((row) => ({
+    category: rowValueByAliases(row, ['category', 'type', 'group']),
+    itemName: rowValueByAliases(row, ['insert', 'item', 'item name', 'name', 'card type']),
+    oddsText: rowValueByAliases(row, ['odds', 'odds text', 'pack odds']),
+    packRate: rowValueByAliases(row, ['pack rate', 'rate', 'collector rate']),
+    notes: rowValueByAliases(row, ['notes', 'note'])
+  })).filter((row) => row.itemName || row.oddsText || row.packRate)
+}
+
+async function fileToText(file) {
+  if (!file) return ''
+  const ext = String(file?.name || '').toLowerCase()
+  if (ext.endsWith('.json')) {
+    return String(await file.text())
+  }
+  return String(await file.text())
+}
+
+function isSpreadsheetFileName(filename = '') {
+  const name = String(filename || '').toLowerCase()
+  return name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.xlsm') || name.endsWith('.xlsb')
+}
+
+async function parseApiJsonResponse(response, failureMessage = 'Request failed') {
+  const raw = await response.text()
+  if (!raw) return {}
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    const trimmed = raw.trim().toLowerCase()
+    if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) {
+      throw new Error(`${failureMessage}: server returned HTML instead of JSON. Verify backend URL and confirm backend is running.`)
+    }
+    throw new Error(`${failureMessage}: server returned an invalid JSON response.`)
+  }
+}
+
+function readChecklistSetForm() {
+  const year = normalizeChecklistYear(checklistImportYear?.value)
+  const brand = String(checklistImportBrand?.value || '').trim()
+  const setName = String(checklistImportSetName?.value || '').trim()
+  return {
+    sport: activeSport(),
+    year,
+    brand,
+    setName,
+    source: 'topps_import_ui'
+  }
+}
+
+function inferChecklistMetadataFromUrl(urlValue = '') {
+  const raw = String(urlValue || '').trim()
+  if (!raw) return { brand: '', setName: '' }
+
+  let parsed = null
+  try {
+    parsed = new URL(raw)
+  } catch {
+    return { brand: '', setName: '' }
+  }
+
+  const sourceText = `${parsed.hostname} ${parsed.pathname}`.toLowerCase()
+  let brand = ''
+  if (sourceText.includes('topps')) brand = 'Topps'
+  else if (sourceText.includes('panini')) brand = 'Panini'
+  else if (sourceText.includes('upperdeck') || sourceText.includes('upper deck')) brand = 'Upper Deck'
+  else if (sourceText.includes('leaf')) brand = 'Leaf'
+
+  const fileName = decodeURIComponent(parsed.pathname || '').split('/').filter(Boolean).pop() || ''
+  const base = fileName.replace(/\.[a-z0-9]+$/i, '')
+  const setName = base
+    .replace(/[._-]+/g, ' ')
+    .replace(/\b(checklist|pack\s*odds|odds|football|basketball|baseball|hobby|hta|pdf)\b/gi, ' ')
+    .replace(/\b(19\d{2}|20\d{2})\b/g, ' ')
+    .replace(/\b(topps|panini|upper\s*deck|leaf)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return {
+    brand,
+    setName: setName
+      ? setName.split(' ').map((token) => token ? `${token.charAt(0).toUpperCase()}${token.slice(1)}` : '').join(' ').trim()
+      : ''
+  }
+}
+
+function validateChecklistSetForm(options = {}) {
+  const set = readChecklistSetForm()
+  const importUrl = normalizeRemoteImportUrl(options?.url || '')
+  const inferred = importUrl ? inferChecklistMetadataFromUrl(importUrl) : { brand: '', setName: '' }
+  if (!set.brand && inferred.brand) set.brand = inferred.brand
+  if (!set.setName && inferred.setName) set.setName = inferred.setName
+
+  if (importUrl) {
+    // URL imports should not fail only because metadata tokens are missing in filename/host.
+    if (!set.brand) set.brand = 'Topps'
+    if (!set.setName) set.setName = 'Imported Checklist'
+  }
+
+  if (!set.year) {
+    throw new Error('Set year must be 2025, 2026, or 2025-2026.')
+  }
+  if (!set.brand) {
+    throw new Error('Brand is required before importing.')
+  }
+  if (!set.setName) {
+    throw new Error('Set name is required before importing.')
+  }
+  return set
+}
+
+async function parseChecklistImportPayload() {
+  const pasted = String(checklistPasteInput?.value || '').trim()
+  if (!pasted) return []
+  return parseChecklistRowsFromRaw(pasted)
+}
+
+async function parseOddsImportPayload() {
+  const pasted = String(oddsPasteInput?.value || '').trim()
+  if (!pasted) return []
+  return parseOddsRowsFromRaw(pasted)
+}
+
+function normalizeRemoteImportUrl(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  try {
+    const parsed = new URL(raw)
+    if (!['http:', 'https:'].includes(parsed.protocol)) return ''
+    return parsed.toString()
+  } catch {
+    return ''
+  }
+}
+
+async function importChecklistFromSelectedFile(set) {
+  if (!selectedChecklistFile) return null
+
+  const filename = String(selectedChecklistFile?.name || '').toLowerCase()
+  const requiresBinaryUpload = filename.endsWith('.pdf') || isSpreadsheetFileName(filename)
+  if (!requiresBinaryUpload) {
+    const text = await fileToText(selectedChecklistFile)
+    if (filename.endsWith('.json')) {
+      const parsed = JSON.parse(text)
+      const cards = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.cards) ? parsed.cards : [])
+      if (!cards.length) throw new Error('No checklist rows found in the selected JSON file.')
+      const res = await fetchBackend('/catalog/checklist/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set, cards })
+      })
+      const data = await parseApiJsonResponse(res, 'Checklist import failed')
+      if (!res.ok) throw new Error(data?.error || 'Checklist import failed')
+      return data
+    }
+
+    const cards = parseChecklistRowsFromRaw(text)
+    if (!cards.length) throw new Error('No checklist rows found in the selected file.')
+    const res = await fetchBackend('/catalog/checklist/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set, cards })
+    })
+    const data = await parseApiJsonResponse(res, 'Checklist import failed')
+    if (!res.ok) throw new Error(data?.error || 'Checklist import failed')
+    return data
+  }
+
+  const formData = new FormData()
+  formData.append('file', selectedChecklistFile)
+  formData.append('sport', set.sport)
+  formData.append('year', set.year)
+  formData.append('brand', set.brand)
+  formData.append('setName', set.setName)
+  formData.append('source', set.source)
+  formData.append('notes', String(set.notes || ''))
+
+  const res = await fetchBackend('/catalog/checklist/import-file', {
+    method: 'POST',
+    body: formData
+  })
+  const data = await parseApiJsonResponse(res, 'Checklist file import failed')
+  if (!res.ok) throw new Error(data?.error || 'Checklist file import failed')
+  return data
+}
+
+async function importOddsFromSelectedFile(set) {
+  if (!selectedOddsFile) return null
+
+  const filename = String(selectedOddsFile?.name || '').toLowerCase()
+  const requiresBinaryUpload = filename.endsWith('.pdf') || isSpreadsheetFileName(filename)
+  if (!requiresBinaryUpload) {
+    const text = await fileToText(selectedOddsFile)
+    if (filename.endsWith('.json')) {
+      const parsed = JSON.parse(text)
+      const odds = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.odds) ? parsed.odds : [])
+      if (!odds.length) throw new Error('No odds rows found in the selected JSON file.')
+      const res = await fetchBackend('/catalog/odds/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set, odds })
+      })
+      const data = await parseApiJsonResponse(res, 'Odds import failed')
+      if (!res.ok) throw new Error(data?.error || 'Odds import failed')
+      return data
+    }
+
+    const odds = parseOddsRowsFromRaw(text)
+    if (!odds.length) throw new Error('No odds rows found in the selected file.')
+    const res = await fetchBackend('/catalog/odds/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set, odds })
+    })
+    const data = await parseApiJsonResponse(res, 'Odds import failed')
+    if (!res.ok) throw new Error(data?.error || 'Odds import failed')
+    return data
+  }
+
+  const formData = new FormData()
+  formData.append('file', selectedOddsFile)
+  formData.append('sport', set.sport)
+  formData.append('year', set.year)
+  formData.append('brand', set.brand)
+  formData.append('setName', set.setName)
+  formData.append('source', set.source)
+  formData.append('notes', String(set.notes || ''))
+
+  const res = await fetchBackend('/catalog/odds/import-file', {
+    method: 'POST',
+    body: formData
+  })
+  const data = await parseApiJsonResponse(res, 'Odds file import failed')
+  if (!res.ok) throw new Error(data?.error || 'Odds file import failed')
+  return data
+}
+
+async function syncOpenChecklistPopularSets() {
+  try {
+    if (!OPEN_CHECKLIST_SUPPORTED_SPORTS.has(activeSport())) {
+      showChecklistStatus(`Open Checklist sync is currently available for ${Array.from(OPEN_CHECKLIST_SUPPORTED_SPORTS).join(', ')} only.`, true)
+      return
+    }
+
+    showChecklistStatus('Syncing Open Checklist sets and subsets...')
+    const res = await fetchBackend('/catalog/open-checklist/sync-popular', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sport: activeSport(),
+        limit: 50,
+        includeSubsets: true
+      })
+    })
+
+    const data = await parseApiJsonResponse(res, 'Open Checklist sync failed')
+    if (!res.ok) {
+      const availableSports = Array.isArray(data?.availableSports) ? data.availableSports.filter(Boolean) : []
+      const availableNote = availableSports.length ? ` Available repo sports: ${availableSports.join(', ')}.` : ''
+      throw new Error(`${data?.error || 'Open Checklist sync failed'}${availableNote}`)
+    }
+
+    await loadChecklistCatalogData({ quiet: true })
+
+    const selectedCount = Number(data?.selectedCount || 0)
+    const importedCount = Number(data?.importedCount || 0)
+    const parsedRows = Number(data?.parsedRows || 0)
+    const failedCount = Number(data?.failedCount || 0)
+    const failedSets = Array.isArray(data?.failedSets) ? data.failedSets : []
+    const failedSetNote = failedSets
+      .slice(0, 3)
+      .map((item) => {
+        const slug = String(item?.slug || item?.name || '').trim()
+        const message = String(item?.error || '').trim()
+        if (!slug && !message) return ''
+        if (!slug) return message
+        if (!message) return slug
+        return `${slug}: ${message}`
+      })
+      .filter(Boolean)
+      .join(' | ')
+    const failureNote = failedCount > 0
+      ? ` ${failedCount} set(s) failed.${failedSetNote ? ` Sample failures: ${failedSetNote}` : ''}`
+      : ''
+    showChecklistStatus(`Open Checklist sync complete: ${importedCount}/${selectedCount || importedCount} set(s) imported, ${parsedRows} row(s) processed with subsets enabled.${failureNote}`)
+  } catch (err) {
+    showChecklistStatus(`Open Checklist sync failed: ${err.message || 'Unknown error'}`, true)
+  }
+}
+
+async function importChecklistFromUrl() {
+  try {
+    const url = normalizeRemoteImportUrl(checklistImportUrl?.value)
+    if (!url) {
+      throw new Error('Enter a valid checklist URL first.')
+    }
+    const profile = await ensureChecklistImportProfileBeforeIngest({
+      sourceType: 'checklist url',
+      sourceUrl: url,
+      sport: activeSport(),
+      year: checklistImportYear?.value,
+      setName: checklistImportSetName?.value,
+      manufacturer: checklistImportBrand?.value
+    })
+    if (profile === null) return
+
+    const set = validateChecklistSetForm({ url })
+    const profileNotes = buildChecklistImportProfileNotes(profile || {})
+    if (profileNotes) set.notes = profileNotes
+
+    showChecklistStatus('Fetching checklist URL and parsing content...')
+    const res = await fetchBackend('/catalog/checklist/import-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set, url })
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      const lowerError = String(data?.error || '').toLowerCase()
+      const likelyBlocked = lowerError.includes('http 403') || lowerError.includes('fetch source url')
+      if (!likelyBlocked) {
+        throw new Error(data?.error || 'Checklist URL import failed')
+      }
+
+      // Fallback path: try browser fetch for pages that block backend fetches.
+      const browserRes = await fetch(url)
+      if (!browserRes.ok) {
+        throw new Error(`${data?.error || 'Checklist URL import failed'}. Source site may block remote reads; try the direct PDF URL or download PDF and import as file.`)
+      }
+      const text = await browserRes.text()
+      const cards = parseChecklistRowsFromRaw(text)
+      if (!cards.length) {
+        throw new Error('Could not parse checklist rows from URL content. Try the direct PDF URL or download PDF and import as file.')
+      }
+
+      const bulkRes = await fetchBackend('/catalog/checklist/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set, cards })
+      })
+      const bulkData = await bulkRes.json()
+      if (!bulkRes.ok) {
+        throw new Error(bulkData?.error || 'Checklist URL fallback import failed')
+      }
+
+      showChecklistStatus(`Checklist URL fallback import complete: ${bulkData.inserted || 0} inserted, ${bulkData.updated || 0} updated.`)
+      await loadChecklistCatalogData({ quiet: true })
+      return
+    }
+
+    showChecklistStatus(`Checklist URL import complete: ${data.inserted || 0} inserted, ${data.updated || 0} updated from ${data.sourceType || 'source'}.`)
+    await loadChecklistCatalogData({ quiet: true })
+  } catch (err) {
+    showChecklistStatus(`Checklist URL import failed: ${err.message || 'Unknown error'}`, true)
+  }
+}
+
+async function importOddsFromUrl() {
+  try {
+    const url = normalizeRemoteImportUrl(oddsImportUrl?.value)
+    if (!url) {
+      throw new Error('Enter a valid odds URL first.')
+    }
+    const profile = await ensureChecklistImportProfileBeforeIngest({
+      sourceType: 'odds url',
+      sourceUrl: url,
+      sport: activeSport(),
+      year: checklistImportYear?.value,
+      setName: checklistImportSetName?.value,
+      manufacturer: checklistImportBrand?.value
+    })
+    if (profile === null) return
+
+    const set = validateChecklistSetForm({ url })
+    const profileNotes = buildChecklistImportProfileNotes(profile || {})
+    if (profileNotes) set.notes = profileNotes
+
+    showChecklistStatus('Fetching odds URL and parsing content...')
+    const res = await fetchBackend('/catalog/odds/import-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set, url })
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      const lowerError = String(data?.error || '').toLowerCase()
+      const likelyBlocked = lowerError.includes('http 403') || lowerError.includes('fetch source url')
+      if (!likelyBlocked) {
+        throw new Error(data?.error || 'Odds URL import failed')
+      }
+
+      // Fallback path: try browser fetch for pages that block backend fetches.
+      const browserRes = await fetch(url)
+      if (!browserRes.ok) {
+        throw new Error(`${data?.error || 'Odds URL import failed'}. Source site may block remote reads; try a direct odds PDF URL or download PDF and import as file.`)
+      }
+      const text = await browserRes.text()
+      const odds = parseOddsRowsFromRaw(text)
+      if (!odds.length) {
+        throw new Error('Could not parse odds rows from URL content. Try a direct odds PDF URL or download PDF and import as file.')
+      }
+
+      const bulkRes = await fetchBackend('/catalog/odds/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set, odds })
+      })
+      const bulkData = await bulkRes.json()
+      if (!bulkRes.ok) {
+        throw new Error(bulkData?.error || 'Odds URL fallback import failed')
+      }
+
+      showChecklistStatus(`Odds URL fallback import complete: ${bulkData.inserted || 0} inserted, ${bulkData.updated || 0} updated.`)
+      await loadChecklistCatalogData({ quiet: true })
+      return
+    }
+
+    showChecklistStatus(`Odds URL import complete: ${data.inserted || 0} inserted, ${data.updated || 0} updated from ${data.sourceType || 'source'}.`)
+    await loadChecklistCatalogData({ quiet: true })
+  } catch (err) {
+    showChecklistStatus(`Odds URL import failed: ${err.message || 'Unknown error'}`, true)
+  }
+}
+
+function renderChecklistSetsTable(items = checklistSetsCache) {
+  if (!checklistSetsBody) return
+  if (!Array.isArray(items) || !items.length) {
+    checklistSetsBody.innerHTML = '<tr><td colspan="7">No imported sets found for current filters.</td></tr>'
+    return
+  }
+
+  checklistSetsBody.innerHTML = ''
+  items.forEach((item) => {
+    const importedDate = formatChecklistImportDate(item?.updatedAt || item?.createdAt)
+    const row = document.createElement('tr')
+    row.innerHTML = `
+      <td>${item?.year || ''}</td>
+      <td>${item?.brand || ''}</td>
+      <td>${item?.setName || ''}</td>
+      <td>${importedDate}</td>
+      <td>${Number(item?.checklistCount || 0)}</td>
+      <td>${Number(item?.oddsCount || 0)}</td>
+      <td></td>
+    `
+
+    const actions = row.lastElementChild
+    const openBtn = document.createElement('button')
+    openBtn.type = 'button'
+    openBtn.textContent = 'Open'
+    openBtn.addEventListener('click', () => {
+      openChecklistSetModal(item)
+    })
+    const deleteBtn = document.createElement('button')
+    deleteBtn.type = 'button'
+    deleteBtn.textContent = 'Delete'
+    deleteBtn.className = 'secondary-btn'
+    deleteBtn.addEventListener('click', async () => {
+      await deleteChecklistSet(item)
+    })
+    actions.appendChild(openBtn)
+    actions.appendChild(deleteBtn)
+    checklistSetsBody.appendChild(row)
+  })
+}
+
+function formatChecklistImportDate(value) {
+  const parsed = Date.parse(String(value || '').trim())
+  if (!Number.isFinite(parsed)) return '-'
+  return new Date(parsed).toLocaleString()
+}
+
+async function deleteChecklistSet(setItem) {
+  const setId = String(setItem?.id || '').trim()
+  if (!setId) return
+
+  const label = `${setItem?.year || ''} ${setItem?.brand || ''} ${setItem?.setName || ''}`.trim() || 'this set'
+  const confirmed = window.confirm(`Delete ${label}? This removes checklist and odds rows for this set.`)
+  if (!confirmed) return
+
+  try {
+    showChecklistStatus(`Deleting ${label}...`)
+    const res = await fetchBackend(`/catalog/sets/${encodeURIComponent(setId)}`, {
+      method: 'DELETE'
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data?.error || 'Delete failed')
+    }
+
+    if (activeChecklistSetId && activeChecklistSetId === setId) {
+      closeChecklistSetModal()
+    }
+
+    showChecklistStatus(`Deleted ${label}. Removed ${data?.deletedChecklistRows || 0} checklist row(s) and ${data?.deletedOddsRows || 0} odds row(s).`)
+    await loadChecklistCatalogData({ quiet: true })
+  } catch (err) {
+    showChecklistStatus(`Set delete failed: ${err.message || 'Unknown error'}`, true)
+  }
+}
+
+const checklistSortCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
+function normalizeSortValue(item, key) {
+  if (!item || !key) return ''
+  const raw = String(item?.[key] || '').trim()
+  if (!raw) return ''
+
+  if (key === 'cardNumber') {
+    const match = raw.match(/^([A-Z]{1,8}-)?(\d{1,5})([A-Z]?)$/i)
+    if (match) {
+      const prefix = String(match[1] || '').toUpperCase()
+      const number = String(match[2] || '').padStart(6, '0')
+      const suffix = String(match[3] || '').toUpperCase()
+      return `${prefix}${number}${suffix}`
+    }
+  }
+
+  return raw
+}
+
+function applySortHeaderState(headers = [], state = {}) {
+  headers.forEach((header) => {
+    const key = String(header?.dataset?.sortKey || '').trim()
+    const isActive = key && key === state?.key
+    header.classList.toggle('sorted-asc', Boolean(isActive && state?.direction === 'asc'))
+    header.classList.toggle('sorted-desc', Boolean(isActive && state?.direction === 'desc'))
+    header.setAttribute('aria-sort', isActive ? (state?.direction === 'desc' ? 'descending' : 'ascending') : 'none')
+  })
+}
+
+function checklistFieldValue(item, field) {
+  const key = String(field || '').trim()
+  if (!key) {
+    return [
+      item?.cardNumber,
+      checklistInsertSetLabel(item),
+      item?.player,
+      item?.team,
+      isChecklistRowRookie(item) ? 'rookie' : 'non-rookie'
+    ].map((value) => String(value || '').trim()).join(' ')
+  }
+
+  if (key === 'insertSet') return String(checklistInsertSetLabel(item) || '').trim()
+  if (key === 'rookie') return isChecklistRowRookie(item) ? 'rookie' : 'non-rookie'
+  return String(item?.[key] || '').trim()
+}
+
+function applyChecklistCustomFilter(items = checklistCardsCache) {
+  const rows = Array.isArray(items) ? items : []
+  const field = String(checklistCustomFilterField?.value || '').trim()
+  const operator = String(checklistCustomFilterOperator?.value || 'contains').trim()
+  const rawValue = String(checklistCustomFilterValue?.value || '').trim()
+  const value = rawValue.toLowerCase()
+
+  if (!rows.length) return []
+
+  if (operator === 'is_empty') {
+    return rows.filter((item) => !checklistFieldValue(item, field))
+  }
+  if (operator === 'is_not_empty') {
+    return rows.filter((item) => Boolean(checklistFieldValue(item, field)))
+  }
+  if (!value) return rows
+
+  return rows.filter((item) => {
+    const hay = checklistFieldValue(item, field).toLowerCase()
+    if (!hay) return false
+    if (operator === 'starts_with') return hay.startsWith(value)
+    if (operator === 'equals') return hay === value
+    if (operator === 'not_equals') return hay !== value
+    return hay.includes(value)
+  })
+}
+
+function syncChecklistSortControls() {
+  if (checklistCustomSortField) checklistCustomSortField.value = checklistSortState?.key || 'cardNumber'
+  if (checklistCustomSortDirection) checklistCustomSortDirection.value = checklistSortState?.direction || 'asc'
+}
+
+function checklistInsertSetLabel(item = {}) {
+  const attrs = item?.attributes && typeof item.attributes === 'object' ? item.attributes : {}
+  const parent = String(attrs?.parentSection || '').trim()
+  const section = String(attrs?.section || '').trim()
+  const subSection = String(attrs?.subSection || '').trim()
+  const explicitPath = String(attrs?.sectionPath || '').trim()
+
+  if (explicitPath) {
+    const parts = explicitPath.split('>').map((part) => String(part || '').trim()).filter(Boolean)
+    if (parts.length) {
+      if (parts.length >= 2) return parts[1]
+      return parts[0]
+    }
+  }
+
+  return section || subSection || parent || 'General Checklist'
+}
+
+function sortChecklistItems(items = checklistCardsCache) {
+  const sorted = Array.isArray(items) ? [...items] : []
+  const key = checklistSortState?.key || 'cardNumber'
+  const direction = checklistSortState?.direction === 'desc' ? -1 : 1
+  sorted.sort((a, b) => {
+    const av = key === 'insertSet' ? checklistInsertSetLabel(a) : normalizeSortValue(a, key)
+    const bv = key === 'insertSet' ? checklistInsertSetLabel(b) : normalizeSortValue(b, key)
+    const compared = checklistSortCollator.compare(av, bv)
+    if (compared !== 0) return compared * direction
+
+    const insertCompared = checklistSortCollator.compare(checklistInsertSetLabel(a), checklistInsertSetLabel(b))
+    if (insertCompared !== 0) return insertCompared
+
+    return checklistSortCollator.compare(String(a?.player || '').trim(), String(b?.player || '').trim()) * direction
+  })
+  return sorted
+}
+
+function sortOddsItems(items = checklistOddsCache) {
+  const sorted = Array.isArray(items) ? [...items] : []
+  const key = oddsSortState?.key || 'category'
+  const direction = oddsSortState?.direction === 'desc' ? -1 : 1
+  sorted.sort((a, b) => {
+    const av = normalizeSortValue(a, key)
+    const bv = normalizeSortValue(b, key)
+    const compared = checklistSortCollator.compare(av, bv)
+    if (compared !== 0) return compared * direction
+    return checklistSortCollator.compare(String(a?.itemName || '').trim(), String(b?.itemName || '').trim()) * direction
+  })
+  return sorted
+}
+
+function toggleChecklistSort(sortKey) {
+  const key = String(sortKey || '').trim()
+  if (!key) return
+  if (checklistSortState.key === key) {
+    checklistSortState.direction = checklistSortState.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    checklistSortState = { key, direction: 'asc' }
+  }
+  syncChecklistSortControls()
+  renderChecklistTable(checklistCardsCache)
+}
+
+function toggleOddsSort(sortKey) {
+  const key = String(sortKey || '').trim()
+  if (!key) return
+  if (oddsSortState.key === key) {
+    oddsSortState.direction = oddsSortState.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    oddsSortState = { key, direction: 'asc' }
+  }
+  renderOddsTable(checklistOddsCache)
+}
+
+function rowHasRookieAsterisk(item) {
+  const playerText = String(item?.player || '').trim()
+  return playerText.includes('*')
+}
+
+function isChecklistRowRookie(item) {
+  return isRookieFlag(item?.rookie) || rowHasRookieAsterisk(item)
+}
+
+function applyChecklistRookieFilter(items = checklistCardsCache) {
+  const mode = String(checklistRookieFilter?.value || 'all').trim().toLowerCase()
+  if (!Array.isArray(items) || !items.length || mode === 'all') return Array.isArray(items) ? items : []
+
+  if (mode === 'rookie') {
+    return items.filter((item) => isChecklistRowRookie(item))
+  }
+  if (mode === 'non-rookie') {
+    return items.filter((item) => !isChecklistRowRookie(item))
+  }
+  if (mode === 'star') {
+    return items.filter((item) => rowHasRookieAsterisk(item))
+  }
+  return items
+}
+
+function normalizeOwnedToken(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function checklistOwnedCardKey(item = {}) {
+  return [
+    normalizeOwnedToken(item?.cardNumber),
+    normalizeOwnedToken(item?.player),
+    normalizeOwnedToken(item?.team)
+  ].join('|')
+}
+
+function readChecklistOwnedStorage() {
+  try {
+    const raw = localStorage.getItem(scopedStorageKey(CHECKLIST_OWNED_STORAGE_KEY))
+    const parsed = JSON.parse(String(raw || '{}'))
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeChecklistOwnedStorage(value = {}) {
+  localStorage.setItem(scopedStorageKey(CHECKLIST_OWNED_STORAGE_KEY), JSON.stringify(value || {}))
+}
+
+function hydrateChecklistOwnedKeysForActiveSet() {
+  const setId = String(activeChecklistSetId || '').trim()
+  if (!setId) {
+    checklistOwnedCardKeys = new Set()
+    return
+  }
+
+  const stored = readChecklistOwnedStorage()
+  const values = Array.isArray(stored?.[setId]) ? stored[setId] : []
+  checklistOwnedCardKeys = new Set(values.map((value) => String(value || '').trim()).filter(Boolean))
+}
+
+function persistChecklistOwnedKeysForActiveSet() {
+  const setId = String(activeChecklistSetId || '').trim()
+  if (!setId) return
+  const stored = readChecklistOwnedStorage()
+  stored[setId] = Array.from(checklistOwnedCardKeys)
+  writeChecklistOwnedStorage(stored)
+}
+
+function isChecklistCardOwned(item = {}) {
+  return checklistOwnedCardKeys.has(checklistOwnedCardKey(item))
+}
+
+function markChecklistCardOwned(item = {}) {
+  const key = checklistOwnedCardKey(item)
+  if (!key || key === '||') return
+  checklistOwnedCardKeys.add(key)
+  persistChecklistOwnedKeysForActiveSet()
+}
+
+async function syncOwnedChecklistKeysFromInventoryForActiveSet() {
+  if (!activeChecklistSetMeta?.setName) return
+
+  const sport = encodeURIComponent(activeSport())
+  const res = await fetchBackend(`/inventory?sport=${sport}`)
+  const data = await parseApiJsonResponse(res, 'Inventory sync failed')
+  if (!res.ok) return
+
+  const activeSetName = normalizeOwnedToken(activeChecklistSetMeta?.setName)
+  const activeYear = normalizeOwnedToken(activeChecklistSetMeta?.year)
+  const items = Array.isArray(data?.items) ? data.items : []
+  items.forEach((inventoryItem) => {
+    const setName = normalizeOwnedToken(inventoryItem?.set)
+    const year = normalizeOwnedToken(inventoryItem?.year)
+    if (setName !== activeSetName) return
+    if (activeYear && year && year !== activeYear) return
+
+    markChecklistCardOwned({
+      cardNumber: inventoryItem?.cardNumber,
+      player: inventoryItem?.name,
+      team: inventoryItem?.team
+    })
+  })
+}
+
+function closeChecklistOwnedCardModal(result = { confirmed: false, details: null }) {
+  if (checklistOwnedCardModal) {
+    checklistOwnedCardModal.classList.remove('active')
+  }
+
+  pendingChecklistOwnedCardItem = null
+  const resolver = pendingChecklistOwnedCardResolve
+  pendingChecklistOwnedCardResolve = null
+  if (typeof resolver === 'function') {
+    resolver(result)
+  }
+}
+
+function collectChecklistOwnedCardInput() {
+  return {
+    sku: String(checklistOwnedSkuInput?.value || '').trim(),
+    quantity: Number(checklistOwnedQuantityInput?.value || 1),
+    rookie: String(checklistOwnedRookieSelect?.value || 'No').trim() || 'No',
+    autograph: String(checklistOwnedAutographSelect?.value || 'No').trim() || 'No',
+    notes: String(checklistOwnedNotesInput?.value || '').trim()
+  }
+}
+
+function inferChecklistOwnedParallel(item = {}) {
+  const explicitParallel = String(item?.parallel || '').trim()
+  if (explicitParallel) return explicitParallel
+
+  const insertSet = String(checklistInsertSetLabel(item) || '').trim()
+  if (!insertSet) return 'Base'
+
+  const normalized = insertSet.toLowerCase()
+  if (
+    normalized === 'base' ||
+    normalized === 'base set' ||
+    normalized === 'general checklist' ||
+    normalized.includes('base')
+  ) {
+    return 'Base'
+  }
+
+  return insertSet
+}
+
+function buildInventoryCardFromChecklist(item = {}, details = {}) {
+  const year = String(activeChecklistSetMeta?.year || '').trim()
+  const setName = String(activeChecklistSetMeta?.setName || '').trim()
+  const insertSet = checklistInsertSetLabel(item)
+  const cardNumber = String(item?.cardNumber || '').trim()
+  const name = String(item?.player || '').trim()
+  const team = String(item?.team || '').trim()
+  const quantity = Number.isFinite(details?.quantity) ? Math.max(1, Math.round(details.quantity)) : 1
+  const parallel = inferChecklistOwnedParallel(item)
+  const notes = String(details?.notes || '').trim()
+
+  const titleParts = [year, setName, name, cardNumber ? `#${cardNumber}` : '']
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+
+  const descriptionParts = [
+    insertSet ? `Insert Set: ${insertSet}` : '',
+    notes ? `Notes: ${notes}` : ''
+  ].filter(Boolean)
+
+  return {
+    Side: 'Single',
+    SKU: String(details?.sku || '').trim(),
+    Name: name,
+    Team: team,
+    Position: String(item?.position || '').trim(),
+    Set: setName,
+    Year: year,
+    CardNumber: cardNumber,
+    Quantity: quantity,
+    Parallel: parallel,
+    Rookie: String(details?.rookie || 'No').trim() || 'No',
+    Autograph: String(details?.autograph || 'No').trim() || 'No',
+    Title: titleParts.join(' '),
+    Description: descriptionParts.join(' | '),
+    PickFrom: '',
+    Filename: '',
+    PictureURL: ''
+  }
+}
+
+async function saveChecklistOwnedCardToInventory(item = {}, details = {}) {
+  const payload = {
+    sport: activeSport(),
+    cards: [buildInventoryCardFromChecklist(item, details)]
+  }
+
+  const res = await fetchBackend('/inventory/bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  const data = await parseApiJsonResponse(res, 'Owned card save failed')
+  if (!res.ok) {
+    throw new Error(data?.error || 'Failed to save owned card into inventory.')
+  }
+
+  markChecklistCardOwned(item)
+  await refreshCommittedSkuCounterFromInventory()
+
+  const name = String(item?.player || '').trim() || `Card #${String(item?.cardNumber || '').trim()}`
+  showChecklistStatus(`Added ${name} to inventory (${data.inserted || 0} new, ${data.updated || 0} updated).`)
+  showInventoryStatus(`Checklist card saved to ${activeSport()} inventory.`)
+}
+
+function requestChecklistOwnedCardDetails(item = {}) {
+  if (!checklistOwnedCardModal) {
+    return Promise.resolve({ confirmed: false, details: null })
+  }
+
+  pendingChecklistOwnedCardItem = item
+  const titleBits = [
+    String(activeChecklistSetMeta?.year || '').trim(),
+    String(activeChecklistSetMeta?.brand || '').trim(),
+    String(activeChecklistSetMeta?.setName || '').trim()
+  ].filter(Boolean)
+  const titleText = titleBits.join(' ')
+  const cardLabel = `${String(item?.cardNumber || '').trim()} ${String(item?.player || '').trim()} ${String(item?.team || '').trim()}`.trim()
+
+  if (checklistOwnedCardSummary) {
+    checklistOwnedCardSummary.textContent = `${titleText} | ${cardLabel || 'Checklist card selected'}`
+  }
+
+  if (checklistOwnedSkuInput) checklistOwnedSkuInput.value = nextSku()
+  if (checklistOwnedQuantityInput) checklistOwnedQuantityInput.value = '1'
+  if (checklistOwnedParallelDisplay) {
+    checklistOwnedParallelDisplay.textContent = `Parallel / Variant: ${inferChecklistOwnedParallel(item)} (auto-detected)`
+  }
+  if (checklistOwnedRookieSelect) checklistOwnedRookieSelect.value = isChecklistRowRookie(item) ? 'Yes' : 'No'
+  if (checklistOwnedAutographSelect) checklistOwnedAutographSelect.value = 'No'
+  if (checklistOwnedNotesInput) checklistOwnedNotesInput.value = ''
+
+  checklistOwnedCardModal.classList.add('active')
+  return new Promise((resolve) => {
+    pendingChecklistOwnedCardResolve = resolve
+  })
+}
+
+async function handleChecklistOwnedToggleChange(event) {
+  const checkbox = event?.target
+  if (!checkbox || !checkbox.classList?.contains('checklist-owned-checkbox')) return
+
+  const rowIndex = Number(checkbox?.dataset?.rowIndex)
+  if (!Number.isFinite(rowIndex) || rowIndex < 0) {
+    checkbox.checked = false
+    return
+  }
+
+  const item = checklistVisibleRowsCache[rowIndex]
+  if (!item) {
+    checkbox.checked = false
+    return
+  }
+
+  if (!checkbox.checked) {
+    checkbox.checked = isChecklistCardOwned(item)
+    return
+  }
+
+  if (isChecklistCardOwned(item)) {
+    showChecklistStatus('Card is already marked owned in this set.')
+    checkbox.checked = true
+    return
+  }
+
+  try {
+    const decision = await requestChecklistOwnedCardDetails(item)
+    if (!decision?.confirmed || !decision?.details) {
+      checkbox.checked = false
+      return
+    }
+
+    await saveChecklistOwnedCardToInventory(item, decision.details)
+    renderChecklistTable(checklistCardsCache)
+  } catch (err) {
+    checkbox.checked = false
+    showChecklistStatus(`Owned card save failed: ${err.message || 'Unknown error'}`, true)
+  }
+}
+
+function renderChecklistTable(items = checklistCardsCache) {
+  if (!checklistDataBody) return
+  applySortHeaderState(checklistSortHeaders, checklistSortState)
+
+  const rookieFiltered = applyChecklistRookieFilter(items)
+  const customFiltered = applyChecklistCustomFilter(rookieFiltered)
+  const sortedItems = sortChecklistItems(customFiltered)
+  checklistVisibleRowsCache = sortedItems
+
+  if (!sortedItems.length) {
+    checklistDataBody.innerHTML = '<tr><td colspan="5">No checklist rows found for this set/filter.</td></tr>'
+    return
+  }
+
+  checklistDataBody.innerHTML = ''
+  sortedItems.forEach((item, index) => {
+    const insertSet = checklistInsertSetLabel(item)
+    const player = String(item?.player || '').trim()
+    const playerWithRookie = player ? `${player}${isRookieFlag(item?.rookie) ? '*' : ''}` : ''
+    const owned = isChecklistCardOwned(item)
+    const row = document.createElement('tr')
+    row.innerHTML = `
+      <td>${item?.cardNumber || ''}</td>
+      <td>${insertSet}</td>
+      <td>${playerWithRookie}</td>
+      <td>${item?.team || ''}</td>
+      <td class="checklist-owned-cell">
+        <label class="checklist-owned-toggle">
+          <input type="checkbox" class="checklist-owned-checkbox" data-row-index="${index}" ${owned ? 'checked' : ''}>
+          <span>${owned ? 'Owned' : 'Own'}</span>
+        </label>
+      </td>
+    `
+    checklistDataBody.appendChild(row)
+  })
+}
+
+function renderOddsTable(items = checklistOddsCache) {
+  if (!checklistOddsBody) return
+  applySortHeaderState(oddsSortHeaders, oddsSortState)
+
+  const sortedItems = sortOddsItems(items)
+  if (!sortedItems.length) {
+    checklistOddsBody.innerHTML = '<tr><td colspan="5">No odds rows found for this set/filter.</td></tr>'
+    return
+  }
+
+  checklistOddsBody.innerHTML = ''
+  sortedItems.forEach((item) => {
+    const row = document.createElement('tr')
+    row.innerHTML = `
+      <td>${item?.category || ''}</td>
+      <td>${item?.itemName || ''}</td>
+      <td>${item?.oddsText || ''}</td>
+      <td>${item?.packRate || ''}</td>
+      <td>${item?.notes || ''}</td>
+    `
+    checklistOddsBody.appendChild(row)
+  })
+}
+
+function checklistFilterParams() {
+  const year = normalizeChecklistYear(checklistYearFilter?.value)
+  const search = String(checklistSetSearchInput?.value || '').trim()
+  return {
+    year,
+    search,
+    sport: activeSport()
+  }
+}
+
+function checklistDetailFilterParams() {
+  return {
+    setId: String(activeChecklistSetId || '').trim(),
+    sport: activeSport(),
+    year: normalizeChecklistYear(activeChecklistSetMeta?.year || checklistYearFilter?.value),
+    search: String(checklistSearchInput?.value || '').trim(),
+    category: String(checklistOddsCategoryFilter?.value || '').trim()
+  }
+}
+
+function toQueryString(params = {}) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    const clean = String(value || '').trim()
+    if (!clean) return
+    query.set(key, clean)
+  })
+  return query.toString()
+}
+
+async function loadChecklistCatalogData({ quiet = false } = {}) {
+  if (!checklistPage) return
+
+  const filters = checklistFilterParams()
+  const setQuery = toQueryString({ sport: filters.sport, year: filters.year })
+
+  if (!quiet) {
+    showChecklistStatus('Loading imported sets...')
+  }
+
+  try {
+    const setsRes = await fetchBackend(`/catalog/sets?${setQuery}`)
+    const setsData = await setsRes.json()
+
+    if (!setsRes.ok) throw new Error(setsData?.error || 'Failed to load set list')
+
+    checklistSetsCache = Array.isArray(setsData?.items) ? setsData.items : []
+
+    if (filters.search) {
+      const token = filters.search.toLowerCase()
+      checklistSetsCache = checklistSetsCache.filter((item) => {
+        const haystack = `${item?.year || ''} ${item?.brand || ''} ${item?.setName || ''}`.toLowerCase()
+        return haystack.includes(token)
+      })
+    }
+
+    renderChecklistSetsTable(checklistSetsCache)
+    showChecklistStatus(`Loaded ${checklistSetsCache.length} imported set(s).`)
+  } catch (err) {
+    renderChecklistSetsTable([])
+    showChecklistStatus(`Checklist workspace load failed: ${err.message || 'Unknown error'}`, true)
+  }
+}
+
+function openChecklistSetModal(setItem) {
+  if (!setItem?.id || !checklistSetModal) return
+  activeChecklistSetId = String(setItem.id)
+  activeChecklistSetMeta = setItem
+  hydrateChecklistOwnedKeysForActiveSet()
+  if (checklistSetModalTitle) {
+    checklistSetModalTitle.textContent = `${setItem.year || ''} ${setItem.brand || ''} ${setItem.setName || ''}`.trim() || 'Set Drill Down'
+  }
+  if (checklistSearchInput) checklistSearchInput.value = ''
+  if (checklistOddsCategoryFilter) checklistOddsCategoryFilter.value = ''
+  if (checklistRookieFilter) checklistRookieFilter.value = 'all'
+  if (checklistCustomFilterField) checklistCustomFilterField.value = ''
+  if (checklistCustomFilterOperator) checklistCustomFilterOperator.value = 'contains'
+  if (checklistCustomFilterValue) checklistCustomFilterValue.value = ''
+  syncChecklistSortControls()
+  checklistSetModal.classList.add('active')
+  setChecklistView('checklist')
+  syncOwnedChecklistKeysFromInventoryForActiveSet().catch(() => {})
+  loadChecklistSetDetail({ quiet: false }).catch(() => {})
+}
+
+function closeChecklistSetModal() {
+  if (!checklistSetModal) return
+  checklistSetModal.classList.remove('active')
+  activeChecklistSetId = ''
+  activeChecklistSetMeta = null
+  checklistVisibleRowsCache = []
+  checklistOwnedCardKeys = new Set()
+}
+
+async function loadChecklistSetDetail({ quiet = false } = {}) {
+  if (!activeChecklistSetId) return
+  const filters = checklistDetailFilterParams()
+  const checklistQuery = toQueryString({
+    setId: filters.setId,
+    sport: filters.sport,
+    year: filters.year,
+    search: filters.search,
+    limit: '4000'
+  })
+  const oddsQuery = toQueryString({
+    setId: filters.setId,
+    sport: filters.sport,
+    year: filters.year,
+    search: filters.search,
+    category: filters.category,
+    limit: '4000'
+  })
+
+  if (!quiet) {
+    showChecklistStatus('Loading selected set details...')
+  }
+
+  try {
+    const [checklistRes, oddsRes] = await Promise.all([
+      fetchBackend(`/catalog/checklist?${checklistQuery}`),
+      fetchBackend(`/catalog/odds?${oddsQuery}`)
+    ])
+    const [checklistData, oddsData] = await Promise.all([
+      checklistRes.json(),
+      oddsRes.json()
+    ])
+
+    if (!checklistRes.ok) throw new Error(checklistData?.error || 'Failed to load checklist rows')
+    if (!oddsRes.ok) throw new Error(oddsData?.error || 'Failed to load odds rows')
+
+    checklistCardsCache = Array.isArray(checklistData?.items) ? checklistData.items : []
+    checklistOddsCache = Array.isArray(oddsData?.items) ? oddsData.items : []
+    renderChecklistTable(checklistCardsCache)
+    renderOddsTable(checklistOddsCache)
+    showChecklistStatus(`Loaded ${checklistCardsCache.length} checklist row(s) and ${checklistOddsCache.length} odds row(s) for selected set.`)
+  } catch (err) {
+    renderChecklistTable([])
+    renderOddsTable([])
+    showChecklistStatus(`Set detail load failed: ${err.message || 'Unknown error'}`, true)
+  }
+}
+
+function loadChecklistImportProfiles() {
+  try {
+    const raw = localStorage.getItem(CHECKLIST_IMPORT_PROFILE_STORAGE_KEY)
+    const parsed = JSON.parse(String(raw || '[]'))
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveChecklistImportProfiles(profiles = []) {
+  try {
+    const items = Array.isArray(profiles) ? profiles : []
+    localStorage.setItem(CHECKLIST_IMPORT_PROFILE_STORAGE_KEY, JSON.stringify(items.slice(0, 120)))
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function checklistImportProfileKey(profile = {}) {
+  const sport = String(profile?.sport || '').trim().toLowerCase()
+  const year = String(profile?.year || '').trim().toLowerCase()
+  const manufacturer = String(profile?.manufacturer || '').trim().toLowerCase()
+  const setName = String(profile?.setName || '').trim().toLowerCase()
+  return `${sport}|${year}|${manufacturer}|${setName}`
+}
+
+function findChecklistImportProfileSuggestion(context = {}) {
+  const profiles = loadChecklistImportProfiles()
+  if (!profiles.length) return null
+
+  const contextKey = checklistImportProfileKey({
+    sport: context?.sport,
+    year: context?.year,
+    manufacturer: context?.manufacturer,
+    setName: context?.setName
+  })
+
+  const exact = profiles.find((item) => checklistImportProfileKey(item) === contextKey)
+  if (exact) return exact
+
+  const sameSport = profiles.find((item) => String(item?.sport || '').trim().toLowerCase() === String(context?.sport || '').trim().toLowerCase())
+  return sameSport || profiles[0]
+}
+
+function buildChecklistImportProfileNotes(profile = {}) {
+  const customColumns = String(profile?.customColumns || '').trim()
+  const notes = String(profile?.notes || '').trim()
+  const pieces = []
+  if (customColumns) pieces.push(`customColumns: ${customColumns}`)
+  if (notes) pieces.push(`notes: ${notes}`)
+  return pieces.join(' | ')
+}
+
+function applyChecklistImportProfileToForm(profile = {}) {
+  if (checklistImportSetName) checklistImportSetName.value = String(profile?.setName || checklistImportSetName.value || '').trim()
+  if (checklistImportYear && profile?.year) checklistImportYear.value = String(profile.year).trim()
+  if (checklistImportBrand) checklistImportBrand.value = String(profile?.manufacturer || checklistImportBrand.value || '').trim()
+}
+
+function resolveChecklistImportProfileDialog(result) {
+  if (typeof pendingChecklistImportProfileResolve === 'function') {
+    const resolver = pendingChecklistImportProfileResolve
+    pendingChecklistImportProfileResolve = null
+    resolver(result)
+  }
+}
+
+function closeChecklistImportProfileDialog(result = { confirmed: false, profile: null }) {
+  if (checklistImportProfileModal) {
+    checklistImportProfileModal.classList.remove('active')
+  }
+  pendingChecklistImportProfileContext = null
+  resolveChecklistImportProfileDialog(result)
+}
+
+function collectChecklistImportProfileInput() {
+  const context = pendingChecklistImportProfileContext || {}
+  return {
+    sport: String(context?.sport || activeSport() || '').trim(),
+    setName: String(checklistImportProfileSetName?.value || '').trim(),
+    year: String(checklistImportProfileYear?.value || '').trim(),
+    manufacturer: String(checklistImportProfileManufacturer?.value || '').trim(),
+    customColumns: String(checklistImportProfileCustomColumns?.value || '').trim(),
+    notes: String(checklistImportProfileNotes?.value || '').trim(),
+    sourceType: String(context?.sourceType || '').trim(),
+    sourceUrl: String(context?.sourceUrl || '').trim(),
+    createdAt: new Date().toISOString()
+  }
+}
+
+function saveChecklistImportProfile(profile = {}) {
+  const profiles = loadChecklistImportProfiles()
+  const key = checklistImportProfileKey(profile)
+  const filtered = profiles.filter((item) => checklistImportProfileKey(item) !== key)
+  filtered.unshift(profile)
+  saveChecklistImportProfiles(filtered)
+}
+
+async function requestChecklistImportProfile(context = {}) {
+  if (!checklistImportProfileModal) {
+    return { confirmed: true, profile: null }
+  }
+
+  const normalizedContext = {
+    sport: String(context?.sport || activeSport() || '').trim(),
+    setName: String(context?.setName || checklistImportSetName?.value || '').trim(),
+    year: String(context?.year || checklistImportYear?.value || '').trim(),
+    manufacturer: String(context?.manufacturer || checklistImportBrand?.value || '').trim(),
+    sourceType: String(context?.sourceType || '').trim(),
+    sourceUrl: String(context?.sourceUrl || '').trim()
+  }
+  pendingChecklistImportProfileContext = normalizedContext
+
+  const suggestion = findChecklistImportProfileSuggestion(normalizedContext)
+  const merged = {
+    ...suggestion,
+    ...normalizedContext,
+    setName: normalizedContext.setName || String(suggestion?.setName || '').trim(),
+    year: normalizedContext.year || String(suggestion?.year || '').trim(),
+    manufacturer: normalizedContext.manufacturer || String(suggestion?.manufacturer || '').trim()
+  }
+
+  if (checklistImportProfileSummary) {
+    checklistImportProfileSummary.textContent = `Review metadata before ingesting ${normalizedContext.sourceType || 'checklist'} data. These values improve downstream parsing, inventory, and listing templates.`
+  }
+  if (checklistImportProfileSetName) checklistImportProfileSetName.value = merged.setName || ''
+  if (checklistImportProfileYear) checklistImportProfileYear.value = merged.year || ''
+  if (checklistImportProfileManufacturer) checklistImportProfileManufacturer.value = merged.manufacturer || ''
+  if (checklistImportProfileCustomColumns) checklistImportProfileCustomColumns.value = String(suggestion?.customColumns || '').trim()
+  if (checklistImportProfileNotes) checklistImportProfileNotes.value = String(suggestion?.notes || '').trim()
+
+  checklistImportProfileModal.classList.add('active')
+
+  return new Promise((resolve) => {
+    pendingChecklistImportProfileResolve = resolve
+  })
+}
+
+async function ensureChecklistImportProfileBeforeIngest(context = {}) {
+  const decision = await requestChecklistImportProfile(context)
+  if (!decision?.confirmed) {
+    showChecklistStatus('Import cancelled. Import profile not confirmed.', true)
+    return null
+  }
+
+  const profile = decision?.profile || null
+  if (profile) {
+    applyChecklistImportProfileToForm(profile)
+  }
+  return profile
+}
+
+async function importChecklistRows() {
+  try {
+    const profile = await ensureChecklistImportProfileBeforeIngest({
+      sourceType: selectedChecklistFile ? 'checklist file' : 'checklist text/paste',
+      sport: activeSport(),
+      year: checklistImportYear?.value,
+      setName: checklistImportSetName?.value,
+      manufacturer: checklistImportBrand?.value
+    })
+    if (profile === null) return
+
+    const set = validateChecklistSetForm()
+    const profileNotes = buildChecklistImportProfileNotes(profile || {})
+    if (profileNotes) set.notes = profileNotes
+    if (selectedChecklistFile) {
+      showChecklistStatus(`Importing checklist file: ${selectedChecklistFile.name}...`)
+      const fileResult = await importChecklistFromSelectedFile(set)
+      showChecklistStatus(`Checklist import complete: ${fileResult?.inserted || 0} inserted, ${fileResult?.updated || 0} updated.`)
+      await loadChecklistCatalogData({ quiet: true })
+      return
+    }
+
+    const cards = await parseChecklistImportPayload()
+    if (!cards.length) {
+      throw new Error('No checklist rows found in the selected file, URL, or pasted text.')
+    }
+    showChecklistStatus(`Importing ${cards.length} checklist row(s)...`)
+    const res = await fetchBackend('/catalog/checklist/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set, cards })
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data?.error || 'Checklist import failed')
+    }
+
+    showChecklistStatus(`Checklist import complete: ${data.inserted || 0} inserted, ${data.updated || 0} updated.`)
+    await loadChecklistCatalogData({ quiet: true })
+  } catch (err) {
+    showChecklistStatus(`Checklist import failed: ${err.message || 'Unknown error'}`, true)
+  }
+}
+
+async function importOddsRows() {
+  try {
+    const profile = await ensureChecklistImportProfileBeforeIngest({
+      sourceType: selectedOddsFile ? 'odds file' : 'odds text/paste',
+      sport: activeSport(),
+      year: checklistImportYear?.value,
+      setName: checklistImportSetName?.value,
+      manufacturer: checklistImportBrand?.value
+    })
+    if (profile === null) return
+
+    const set = validateChecklistSetForm()
+    const profileNotes = buildChecklistImportProfileNotes(profile || {})
+    if (profileNotes) set.notes = profileNotes
+    if (selectedOddsFile) {
+      showChecklistStatus(`Importing odds file: ${selectedOddsFile.name}...`)
+      const fileResult = await importOddsFromSelectedFile(set)
+      showChecklistStatus(`Odds import complete: ${fileResult?.inserted || 0} inserted, ${fileResult?.updated || 0} updated.`)
+      await loadChecklistCatalogData({ quiet: true })
+      return
+    }
+
+    const odds = await parseOddsImportPayload()
+    if (!odds.length) {
+      throw new Error('No odds rows found in the selected file, URL, or pasted text.')
+    }
+    showChecklistStatus(`Importing ${odds.length} odds row(s)...`)
+    const res = await fetchBackend('/catalog/odds/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set, odds })
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data?.error || 'Odds import failed')
+    }
+
+    showChecklistStatus(`Odds import complete: ${data.inserted || 0} inserted, ${data.updated || 0} updated.`)
+    await loadChecklistCatalogData({ quiet: true })
+  } catch (err) {
+    showChecklistStatus(`Odds import failed: ${err.message || 'Unknown error'}`, true)
+  }
+}
+
 function cloneProviderCatalog() {
   const providers = Array.isArray(authState?.providers) && authState.providers.length
     ? authState.providers
@@ -390,21 +2112,76 @@ function cloneProviderCatalog() {
 }
 
 function getStoredAuthToken() {
+  let tokenFromSession = ''
+  let tokenFromLocal = ''
+
   try {
-    return String(localStorage.getItem(AUTH_TOKEN_KEY) || '').trim()
+    tokenFromSession = String(sessionStorage.getItem(AUTH_SESSION_TOKEN_KEY) || '').trim()
   } catch {
-    return ''
+    tokenFromSession = ''
   }
+
+  try {
+    tokenFromLocal = String(localStorage.getItem(AUTH_TOKEN_KEY) || '').trim()
+  } catch {
+    tokenFromLocal = ''
+  }
+
+  if (tokenFromSession) {
+    rememberMeEnabled = false
+    if (rememberMeCheckbox) rememberMeCheckbox.checked = false
+    return tokenFromSession
+  }
+
+  if (tokenFromLocal) {
+    rememberMeEnabled = true
+    if (rememberMeCheckbox) rememberMeCheckbox.checked = true
+    return tokenFromLocal
+  }
+
+  rememberMeEnabled = false
+  if (rememberMeCheckbox) rememberMeCheckbox.checked = false
+  return ''
 }
 
-function persistAuthToken(token) {
+function persistAuthToken(token, options = {}) {
   authToken = String(token || '').trim()
+  const rememberMe = typeof options?.rememberMe === 'boolean'
+    ? options.rememberMe
+    : Boolean(rememberMeEnabled)
+  rememberMeEnabled = rememberMe
+
   try {
-    if (authToken) localStorage.setItem(AUTH_TOKEN_KEY, authToken)
-    else localStorage.removeItem(AUTH_TOKEN_KEY)
+    if (!authToken) {
+      localStorage.removeItem(AUTH_TOKEN_KEY)
+      localStorage.removeItem(AUTH_REMEMBER_KEY)
+      sessionStorage.removeItem(AUTH_SESSION_TOKEN_KEY)
+      if (rememberMeCheckbox) rememberMeCheckbox.checked = false
+      return
+    }
+
+    if (rememberMe) {
+      localStorage.setItem(AUTH_TOKEN_KEY, authToken)
+      localStorage.setItem(AUTH_REMEMBER_KEY, 'true')
+      sessionStorage.removeItem(AUTH_SESSION_TOKEN_KEY)
+    } else {
+      sessionStorage.setItem(AUTH_SESSION_TOKEN_KEY, authToken)
+      localStorage.removeItem(AUTH_TOKEN_KEY)
+      localStorage.setItem(AUTH_REMEMBER_KEY, 'false')
+    }
+
+    if (rememberMeCheckbox) rememberMeCheckbox.checked = rememberMe
   } catch {
     // Ignore storage errors.
   }
+}
+
+function applyAuthLandingMode() {
+  const isAuthed = isUserAuthenticated()
+  document.body.classList.toggle('auth-landing-mode', !isAuthed)
+
+  if (appHeader) appHeader.style.display = isAuthed ? '' : 'none'
+  if (appNav) appNav.style.display = isAuthed ? '' : 'none'
 }
 
 function escapeHtml(value) {
@@ -423,10 +2200,42 @@ function formatProfileDate(value) {
 }
 
 function showProfileStatus(message, isError = false) {
-  if (!profileHeroStatus) return
-  profileHeroStatus.textContent = message || ''
-  profileHeroStatus.style.background = isError ? '#ffe7e7' : '#eef3ff'
-  profileHeroStatus.style.color = isError ? '#8a1f1f' : '#30427a'
+  const nextMessage = message || ''
+  if (profileHeroStatus) {
+    profileHeroStatus.textContent = nextMessage
+    profileHeroStatus.style.background = isError ? '#ffe7e7' : '#eef3ff'
+    profileHeroStatus.style.color = isError ? '#8a1f1f' : '#30427a'
+  }
+
+  if (profileAuthStatus) {
+    profileAuthStatus.textContent = nextMessage
+    profileAuthStatus.classList.toggle('error', Boolean(isError))
+  }
+}
+
+function setAuthPortalView(view) {
+  const safeView = String(view || 'login').trim().toLowerCase()
+  const nextView = ['login', 'signup', 'reset'].includes(safeView) ? safeView : 'login'
+
+  if (authLoginPortal) authLoginPortal.classList.toggle('active', nextView === 'login')
+  if (authSignupPortal) authSignupPortal.classList.toggle('active', nextView === 'signup')
+  if (authResetPortal) authResetPortal.classList.toggle('active', nextView === 'reset')
+
+  if (authPortalTitle) {
+    authPortalTitle.textContent = nextView === 'signup'
+      ? 'Create your account'
+      : nextView === 'reset'
+        ? 'Reset password'
+        : 'Sign in'
+  }
+
+  if (authPortalSubtitle) {
+    authPortalSubtitle.textContent = nextView === 'signup'
+      ? 'Register once, then use the same credentials in this environment.'
+      : nextView === 'reset'
+        ? 'Enter your account details to set a new password.'
+        : 'Use your email and password to access CardPilot HQ.'
+  }
 }
 
 function getConnectionBySlug(providerSlug) {
@@ -653,17 +2462,22 @@ function completeEbayOAuthFromUrl() {
 
 function renderProfileUi() {
   updateAccountButtonLabel()
+  applyAuthLandingMode()
   populateConnectionProviderOptions(String(profileConnectionProviderSelect?.value || 'ebay'))
   toggleCustomProviderRow()
   populateConnectionAuthTypeOptions()
 
   const isLoggedIn = Boolean(authState?.user)
-  if (profileAuthPanel) profileAuthPanel.style.display = isLoggedIn ? 'none' : 'grid'
+  if (profileAuthPanel) profileAuthPanel.style.display = isLoggedIn ? 'none' : 'block'
   if (profileWorkspace) profileWorkspace.style.display = isLoggedIn ? 'grid' : 'none'
 
   if (!isLoggedIn) {
+    setAuthPortalView('login')
+    if (rememberMeSignupCheckbox && rememberMeCheckbox) {
+      rememberMeSignupCheckbox.checked = Boolean(rememberMeCheckbox.checked)
+    }
     renderConnectionsList()
-    showProfileStatus('Create a CardPilot HQ account or sign in to manage connections.')
+    showProfileStatus('Create a CardPilot HQ account or sign in before accessing Home and workspace tools.')
     return
   }
 
@@ -739,9 +2553,9 @@ async function authApiFetch(endpoint, options = {}, { allowUnauthorized = false 
   return { response, data }
 }
 
-function applyAuthPayload(data) {
+function applyAuthPayload(data, options = {}) {
   if (data?.token) {
-    persistAuthToken(data.token)
+    persistAuthToken(data.token, { rememberMe: options?.rememberMe })
   }
 
   authState = {
@@ -798,10 +2612,12 @@ async function loadCurrentUserSession({ quiet = false } = {}) {
 async function submitSignup() {
   try {
     showProfileStatus('Creating your CardPilot HQ account...')
+    const rememberMe = Boolean(rememberMeSignupCheckbox?.checked ?? rememberMeCheckbox?.checked)
     const payload = {
       displayName: signupDisplayNameInput?.value || '',
       email: signupEmailInput?.value || '',
-      password: signupPasswordInput?.value || ''
+      password: signupPasswordInput?.value || '',
+      rememberMe
     }
     const { response, data } = await authApiFetch('/auth/signup', {
       method: 'POST',
@@ -814,7 +2630,8 @@ async function submitSignup() {
 
     if (signupPasswordInput) signupPasswordInput.value = ''
     if (loginPasswordInput) loginPasswordInput.value = ''
-    applyAuthPayload(data)
+    applyAuthPayload(data, { rememberMe })
+    setActivePage('home')
   } catch (err) {
     showProfileStatus(err.message || 'Could not create account.', true)
   }
@@ -823,9 +2640,11 @@ async function submitSignup() {
 async function submitLogin() {
   try {
     showProfileStatus('Signing in...')
+    const rememberMe = Boolean(rememberMeCheckbox?.checked)
     const payload = {
       email: loginEmailInput?.value || '',
-      password: loginPasswordInput?.value || ''
+      password: loginPasswordInput?.value || '',
+      rememberMe
     }
     const { response, data } = await authApiFetch('/auth/login', {
       method: 'POST',
@@ -838,7 +2657,8 @@ async function submitLogin() {
 
     if (loginPasswordInput) loginPasswordInput.value = ''
     if (signupPasswordInput) signupPasswordInput.value = ''
-    applyAuthPayload(data)
+    applyAuthPayload(data, { rememberMe })
+    setActivePage('home')
   } catch (err) {
     showProfileStatus(err.message || 'Could not sign in.', true)
   }
@@ -1003,6 +2823,36 @@ async function beginEbayOAuthFlow() {
   }
 }
 
+async function startGoogleOAuth(mode = 'login') {
+  const safeMode = String(mode || 'login').trim().toLowerCase() === 'link' ? 'link' : 'login'
+
+  if (safeMode === 'link' && !authState?.user) {
+    showProfileStatus('Sign in first to link your Google account.', true)
+    return
+  }
+
+  try {
+    showProfileStatus(safeMode === 'link' ? 'Starting Google account linking...' : 'Starting Google sign-in...')
+    const returnPath = safeMode === 'link' ? '/?page=profile' : '/?page=home'
+    const { response, data } = await authApiFetch(
+      `/auth/google/start?mode=${encodeURIComponent(safeMode)}&returnPath=${encodeURIComponent(returnPath)}`,
+      { method: 'GET' },
+      { allowUnauthorized: safeMode === 'login' }
+    )
+
+    if (!response.ok || !data?.authUrl) {
+      const missing = Array.isArray(data?.missing) && data.missing.length
+        ? ` Missing: ${data.missing.join(', ')}`
+        : ''
+      throw new Error((data?.error || 'Could not start Google OAuth.') + missing)
+    }
+
+    window.location.assign(data.authUrl)
+  } catch (err) {
+    showProfileStatus(err.message || 'Could not start Google OAuth.', true)
+  }
+}
+
 async function logoutCurrentUser() {
   try {
     if (authToken) {
@@ -1012,7 +2862,7 @@ async function logoutCurrentUser() {
     console.warn('Logout request failed', err)
   }
 
-  persistAuthToken('')
+  persistAuthToken('', { rememberMe: false })
   authState = {
     user: null,
     session: null,
@@ -1450,92 +3300,122 @@ function renderInventoryTable(items = inventoryRowsCache) {
   if (!inventoryBody) return
 
   if (!Array.isArray(items) || !items.length) {
-    inventoryBody.innerHTML = '<tr><td colspan="12">No cards in inventory for this sport yet.</td></tr>'
+    inventoryBody.innerHTML = '<tr><td colspan="9">No cards in inventory for this sport yet.</td></tr>'
     return
   }
 
   inventoryBody.innerHTML = ''
   items.forEach((item) => {
-    const isEditing = inventoryEditingRowId === item.id
     const row = document.createElement('tr')
 
-    if (isEditing) {
-      row.innerHTML = `
-        <td>${item.id || ''}</td>
-        <td>${item.sport || ''}</td>
-        <td><input class="inv-edit" data-field="sku" type="text" value="${item.sku || ''}" /></td>
-        <td><input class="inv-edit" data-field="name" type="text" value="${item.name || ''}" /></td>
-        <td><input class="inv-edit" data-field="team" type="text" value="${item.team || ''}" /></td>
-        <td><input class="inv-edit" data-field="set" type="text" value="${item.set || ''}" /></td>
-        <td><input class="inv-edit" data-field="year" type="text" value="${item.year || ''}" /></td>
-        <td><input class="inv-edit" data-field="cardNumber" type="text" value="${item.cardNumber || ''}" /></td>
-        <td><input class="inv-edit" data-field="quantity" type="number" min="1" value="${item.quantity || 1}" /></td>
-        <td><input class="inv-edit" data-field="parallel" type="text" value="${item.parallel || ''}" /></td>
-        <td>${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ''}</td>
-        <td></td>
-      `
+    row.innerHTML = `
+      <td>${item.sku || ''}</td>
+      <td>${item.name || ''}</td>
+      <td>${item.team || ''}</td>
+      <td>${item.set || ''}</td>
+      <td>${item.year || ''}</td>
+      <td>${item.cardNumber || ''}</td>
+      <td>${item.quantity || 1}</td>
+      <td>${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ''}</td>
+      <td><div class="inventory-actions"></div></td>
+    `
 
-      const actionsCell = row.lastElementChild
-      const saveBtn = document.createElement('button')
-      saveBtn.type = 'button'
-      saveBtn.textContent = 'Save'
-      saveBtn.addEventListener('click', async () => {
-        const payload = [...row.querySelectorAll('.inv-edit')].reduce((acc, input) => {
-          acc[input.dataset.field] = String(input.value || '').trim()
-          return acc
-        }, {})
-        await updateInventoryRow(item.id, payload)
-      })
+    const actionsCell = row.querySelector('.inventory-actions')
+    const detailButton = document.createElement('button')
+    detailButton.type = 'button'
+    detailButton.textContent = 'Details'
+    detailButton.addEventListener('click', () => {
+      openInventoryDetailModal(item)
+    })
 
-      const cancelBtn = document.createElement('button')
-      cancelBtn.type = 'button'
-      cancelBtn.textContent = 'Cancel'
-      cancelBtn.className = 'secondary-btn'
-      cancelBtn.addEventListener('click', () => {
-        inventoryEditingRowId = ''
-        renderInventoryTable(inventoryRowsCache)
-      })
+    const deleteButton = document.createElement('button')
+    deleteButton.type = 'button'
+    deleteButton.textContent = 'Delete'
+    deleteButton.className = 'secondary-btn'
+    deleteButton.addEventListener('click', async () => {
+      await deleteInventoryRow(item.id)
+    })
 
-      actionsCell.appendChild(saveBtn)
-      actionsCell.appendChild(cancelBtn)
-    } else {
-      row.innerHTML = `
-        <td>${item.id || ''}</td>
-        <td>${item.sport || ''}</td>
-        <td>${item.sku || ''}</td>
-        <td>${item.name || ''}</td>
-        <td>${item.team || ''}</td>
-        <td>${item.set || ''}</td>
-        <td>${item.year || ''}</td>
-        <td>${item.cardNumber || ''}</td>
-        <td>${item.quantity || 1}</td>
-        <td>${item.parallel || ''}</td>
-        <td>${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : ''}</td>
-        <td></td>
-      `
-
-      const actionsCell = row.lastElementChild
-      const editButton = document.createElement('button')
-      editButton.type = 'button'
-      editButton.textContent = 'Edit'
-      editButton.addEventListener('click', () => {
-        inventoryEditingRowId = item.id
-        renderInventoryTable(inventoryRowsCache)
-      })
-
-      const deleteButton = document.createElement('button')
-      deleteButton.type = 'button'
-      deleteButton.textContent = 'Delete'
-      deleteButton.addEventListener('click', async () => {
-        await deleteInventoryRow(item.id)
-      })
-
-      actionsCell.appendChild(editButton)
-      actionsCell.appendChild(deleteButton)
-    }
+    actionsCell?.appendChild(detailButton)
+    actionsCell?.appendChild(deleteButton)
 
     inventoryBody.appendChild(row)
   })
+}
+
+function closeInventoryDetailModal() {
+  if (inventoryDetailModal) inventoryDetailModal.classList.remove('active')
+  activeInventoryDetailId = ''
+}
+
+function openInventoryDetailModal(item) {
+  if (!item?.id || !inventoryDetailModal) return
+
+  activeInventoryDetailId = String(item.id)
+  if (inventoryDetailSummary) {
+    const summary = [item?.year, item?.set, item?.name, item?.cardNumber ? `#${item.cardNumber}` : '']
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .join(' ')
+    inventoryDetailSummary.textContent = summary || `Inventory ID: ${String(item?.id || '').trim()}`
+  }
+
+  if (inventoryDetailSportInput) inventoryDetailSportInput.value = String(item?.sport || '').trim()
+  if (inventoryDetailSkuInput) inventoryDetailSkuInput.value = String(item?.sku || '').trim()
+  if (inventoryDetailNameInput) inventoryDetailNameInput.value = String(item?.name || '').trim()
+  if (inventoryDetailTeamInput) inventoryDetailTeamInput.value = String(item?.team || '').trim()
+  if (inventoryDetailPositionInput) inventoryDetailPositionInput.value = String(item?.position || '').trim()
+  if (inventoryDetailSetInput) inventoryDetailSetInput.value = String(item?.set || '').trim()
+  if (inventoryDetailYearInput) inventoryDetailYearInput.value = String(item?.year || '').trim()
+  if (inventoryDetailCardNumberInput) inventoryDetailCardNumberInput.value = String(item?.cardNumber || '').trim()
+  if (inventoryDetailQuantityInput) inventoryDetailQuantityInput.value = String(item?.quantity || 1)
+  if (inventoryDetailParallelInput) inventoryDetailParallelInput.value = String(item?.parallel || '').trim()
+  if (inventoryDetailRookieSelect) inventoryDetailRookieSelect.value = String(item?.rookie || 'No').trim() || 'No'
+  if (inventoryDetailAutographSelect) inventoryDetailAutographSelect.value = String(item?.autograph || 'No').trim() || 'No'
+  if (inventoryDetailPickFromInput) inventoryDetailPickFromInput.value = String(item?.pickFrom || '').trim()
+  if (inventoryDetailFilenameInput) inventoryDetailFilenameInput.value = String(item?.filename || '').trim()
+  if (inventoryDetailPictureUrlInput) inventoryDetailPictureUrlInput.value = String(item?.pictureUrl || '').trim()
+  if (inventoryDetailTitleInput) inventoryDetailTitleInput.value = String(item?.title || '').trim()
+  if (inventoryDetailDescriptionInput) inventoryDetailDescriptionInput.value = String(item?.description || '').trim()
+
+  inventoryDetailModal.classList.add('active')
+}
+
+function collectInventoryDetailPayload() {
+  const quantityRaw = Number(inventoryDetailQuantityInput?.value || 1)
+  const quantity = Number.isFinite(quantityRaw) ? Math.max(1, Math.round(quantityRaw)) : 1
+
+  return {
+    sport: String(inventoryDetailSportInput?.value || '').trim(),
+    sku: String(inventoryDetailSkuInput?.value || '').trim(),
+    name: String(inventoryDetailNameInput?.value || '').trim(),
+    team: String(inventoryDetailTeamInput?.value || '').trim(),
+    position: String(inventoryDetailPositionInput?.value || '').trim(),
+    set: String(inventoryDetailSetInput?.value || '').trim(),
+    year: String(inventoryDetailYearInput?.value || '').trim(),
+    cardNumber: String(inventoryDetailCardNumberInput?.value || '').trim(),
+    quantity,
+    parallel: String(inventoryDetailParallelInput?.value || '').trim(),
+    rookie: String(inventoryDetailRookieSelect?.value || 'No').trim() || 'No',
+    autograph: String(inventoryDetailAutographSelect?.value || 'No').trim() || 'No',
+    pickFrom: String(inventoryDetailPickFromInput?.value || '').trim(),
+    filename: String(inventoryDetailFilenameInput?.value || '').trim(),
+    pictureUrl: String(inventoryDetailPictureUrlInput?.value || '').trim(),
+    title: String(inventoryDetailTitleInput?.value || '').trim(),
+    description: String(inventoryDetailDescriptionInput?.value || '').trim()
+  }
+}
+
+async function saveInventoryDetailModalChanges() {
+  const id = String(activeInventoryDetailId || '').trim()
+  if (!id) {
+    showInventoryStatus('No inventory record selected for detail save.', true)
+    return
+  }
+
+  const payload = collectInventoryDetailPayload()
+  await updateInventoryRow(id, payload)
+  closeInventoryDetailModal()
 }
 
 function appendClientLog(level, message, details = null) {
@@ -2117,6 +3997,20 @@ function activeSport() {
   return String(sportSelect?.value || 'Football')
 }
 
+function updateOpenChecklistButtonState() {
+  if (!syncOpenChecklistBtn) return
+
+  const sport = activeSport()
+  const supported = OPEN_CHECKLIST_SUPPORTED_SPORTS.has(sport)
+  syncOpenChecklistBtn.disabled = !supported
+  syncOpenChecklistBtn.textContent = supported
+    ? 'Sync Popular Open Checklist Sets'
+    : `Open Checklist Not Available for ${sport}`
+  syncOpenChecklistBtn.title = supported
+    ? 'Preload popular sets from the Open Checklist repository.'
+    : `Open Checklist currently only supports: ${Array.from(OPEN_CHECKLIST_SUPPORTED_SPORTS).join(', ')}`
+}
+
 function getScanDraftDb() {
   if (scanDraftDbPromise) return scanDraftDbPromise
 
@@ -2349,14 +4243,14 @@ function restoreScanDraftSnapshot() {
 }
 
 function setActivePage(page) {
-  const safePage = (page === 'scan' || page === 'inventory' || page === 'pricing' || page === 'listings' || page === 'profile' || page === 'home') ? page : 'home'
-  const pages = [homePage, scanPage, inventoryPage, pricingPage, listingsPage, profilePage]
+  const safePage = resolveAllowedPage(page)
+  const pages = [homePage, scanPage, inventoryPage, pricingPage, listingsPage, checklistPage, profilePage]
   pages.forEach((el) => {
     if (!el) return
     el.classList.remove('active')
   })
 
-  const navButtons = [navHomeBtn, navScanBtn, navInventoryBtn, navPricingBtn, navListingsBtn, navProfileBtn]
+  const navButtons = [navHomeBtn, navScanBtn, navInventoryBtn, navPricingBtn, navListingsBtn, navChecklistBtn, navProfileBtn]
   navButtons.forEach((el) => {
     if (!el) return
     el.classList.remove('active')
@@ -2382,6 +4276,10 @@ function setActivePage(page) {
   } else if (safePage === 'listings') {
     listingsPage?.classList.add('active')
     markNavActive(navListingsBtn)
+  } else if (safePage === 'checklist') {
+    checklistPage?.classList.add('active')
+    markNavActive(navChecklistBtn)
+    loadChecklistCatalogData({ quiet: true }).catch(() => {})
   } else if (safePage === 'profile') {
     profilePage?.classList.add('active')
     markNavActive(navProfileBtn)
@@ -2392,8 +4290,10 @@ function setActivePage(page) {
     markNavActive(navHomeBtn)
   }
 
+  applyAuthLandingMode()
+
   try {
-    localStorage.setItem(ACTIVE_PAGE_KEY, safePage)
+    localStorage.setItem(ACTIVE_PAGE_KEY, normalizeAppPage(safePage))
   } catch {
     // Ignore storage write issues (private mode / quota).
   }
@@ -2440,15 +4340,16 @@ function initScanCommandRibbon() {
 
 function getInitialActivePage() {
   const urlContext = getUrlContext()
-  if (urlContext.page === 'scan' || urlContext.page === 'inventory' || urlContext.page === 'pricing' || urlContext.page === 'listings' || urlContext.page === 'profile' || urlContext.page === 'home') {
-    return urlContext.page
+  const contextPage = normalizeAppPage(urlContext.page)
+  if (contextPage) {
+    return resolveAllowedPage(contextPage)
   }
 
   try {
     const importInProgress = sessionStorage.getItem(IMPORT_IN_PROGRESS_KEY) === '1'
     if (importInProgress) {
       sessionStorage.removeItem(IMPORT_IN_PROGRESS_KEY)
-      return 'scan'
+      return resolveAllowedPage('scan')
     }
   } catch {
     // Ignore storage read issues.
@@ -2456,19 +4357,19 @@ function getInitialActivePage() {
 
   try {
     const savedPage = String(localStorage.getItem(ACTIVE_PAGE_KEY) || '').trim().toLowerCase()
-    if (savedPage === 'scan' || savedPage === 'inventory' || savedPage === 'pricing' || savedPage === 'listings' || savedPage === 'profile' || savedPage === 'home') {
-      return savedPage
+    if (savedPage) {
+      return resolveAllowedPage(savedPage)
     }
   } catch {
     // Ignore storage read issues.
   }
 
-  return 'home'
+  return resolveAllowedPage('home')
 }
 
 async function loadInventory() {
   if (!inventoryBody) return
-  inventoryBody.innerHTML = '<tr><td colspan="11">Loading inventory...</td></tr>'
+  inventoryBody.innerHTML = '<tr><td colspan="9">Loading inventory...</td></tr>'
 
   try {
     const sport = encodeURIComponent(activeSport())
@@ -2488,7 +4389,7 @@ async function loadInventory() {
   } catch (err) {
     inventoryRowsCache = []
     renderPricingTable([])
-    inventoryBody.innerHTML = '<tr><td colspan="11">Failed to load inventory.</td></tr>'
+    inventoryBody.innerHTML = '<tr><td colspan="9">Failed to load inventory.</td></tr>'
     scrubScanPickFromValues()
     updatePickFromOptions()
     console.error('Inventory load failed:', err)
@@ -2940,12 +4841,15 @@ function initAppNavigation() {
 
     sportSelect.addEventListener('change', () => {
       localStorage.setItem(ACTIVE_SPORT_KEY, sportSelect.value)
+      updateOpenChecklistButtonState()
       renderPrefillHistoryOptions()
       loadCatalogSetOptions().catch(() => {})
       if (inventoryPage?.classList.contains('active')) {
         loadInventory()
       } else if (pricingPage?.classList.contains('active')) {
         loadInventory().then(() => refreshPricingEstimates(inventoryRowsCache, { force: true }))
+      } else if (checklistPage?.classList.contains('active')) {
+        loadChecklistCatalogData().catch(() => {})
       }
     })
   }
@@ -2966,6 +4870,10 @@ function initAppNavigation() {
     setActivePage('listings')
     await loadListingTemplates()
     await loadInventory()
+  })
+  navChecklistBtn?.addEventListener('click', async () => {
+    setActivePage('checklist')
+    await loadChecklistCatalogData()
   })
   navProfileBtn?.addEventListener('click', async () => {
     setActivePage('profile')
@@ -3023,6 +4931,14 @@ function initAppNavigation() {
   exportEbayCsvBtn?.addEventListener('click', exportInventoryEbayCsv)
   clearSportInventoryBtn?.addEventListener('click', () => clearInventory('sport'))
   clearAllInventoryBtn?.addEventListener('click', () => clearInventory('all'))
+  closeInventoryDetailModalBtn?.addEventListener('click', closeInventoryDetailModal)
+  cancelInventoryDetailBtn?.addEventListener('click', closeInventoryDetailModal)
+  saveInventoryDetailBtn?.addEventListener('click', () => {
+    saveInventoryDetailModalChanges().catch(() => {})
+  })
+  inventoryDetailModal?.addEventListener('click', (event) => {
+    if (event.target === inventoryDetailModal) closeInventoryDetailModal()
+  })
   buildListingDraftBtn?.addEventListener('click', buildListingDraftFromInventory)
   submitListingDraftBtn?.addEventListener('click', submitListingDraftToStorefront)
   cancelListingDraftBtn?.addEventListener('click', cancelListingDraftBuild)
@@ -3044,14 +4960,219 @@ function initAppNavigation() {
   submitFeedbackBtn?.addEventListener('click', submitFeedbackReport)
   signupSubmitBtn?.addEventListener('click', submitSignup)
   loginSubmitBtn?.addEventListener('click', submitLogin)
+  googleLoginBtn?.addEventListener('click', () => startGoogleOAuth('login'))
+  showForgotPasswordLink?.addEventListener('click', (event) => {
+    event.preventDefault()
+    setAuthPortalView('reset')
+  })
+  showSignupLink?.addEventListener('click', (event) => {
+    event.preventDefault()
+    if (rememberMeSignupCheckbox && rememberMeCheckbox) {
+      rememberMeSignupCheckbox.checked = Boolean(rememberMeCheckbox.checked)
+    }
+    setAuthPortalView('signup')
+  })
+  backToLoginFromSignupLink?.addEventListener('click', (event) => {
+    event.preventDefault()
+    if (rememberMeSignupCheckbox && rememberMeCheckbox) {
+      rememberMeCheckbox.checked = Boolean(rememberMeSignupCheckbox.checked)
+    }
+    setAuthPortalView('login')
+  })
+  backToLoginFromResetLink?.addEventListener('click', (event) => {
+    event.preventDefault()
+    setAuthPortalView('login')
+  })
   findAccountBtn?.addEventListener('click', findAccountForSignin)
   resetPasswordBtn?.addEventListener('click', resetPasswordForSignin)
   saveProfileBtn?.addEventListener('click', saveProfileSettings)
   logoutBtn?.addEventListener('click', logoutCurrentUser)
+  googleLinkBtn?.addEventListener('click', () => startGoogleOAuth('link'))
   saveConnectionBtn?.addEventListener('click', saveConnectionSettings)
   resetConnectionFormBtn?.addEventListener('click', () => {
     resetConnectionForm(String(profileConnectionProviderSelect?.value || 'ebay'))
     showProfileStatus('Connection form reset.')
+  })
+  checklistViewTabBtn?.addEventListener('click', () => setChecklistView('checklist'))
+  oddsViewTabBtn?.addEventListener('click', () => setChecklistView('odds'))
+  refreshChecklistCatalogBtn?.addEventListener('click', async () => {
+    await loadChecklistCatalogData()
+  })
+  checklistYearFilter?.addEventListener('change', () => {
+    loadChecklistCatalogData().catch(() => {})
+  })
+  checklistSetSearchInput?.addEventListener('input', () => {
+    loadChecklistCatalogData({ quiet: true }).catch(() => {})
+  })
+  checklistSearchInput?.addEventListener('input', () => {
+    if (!activeChecklistSetId) return
+    loadChecklistSetDetail({ quiet: true }).catch(() => {})
+  })
+  checklistRookieFilter?.addEventListener('change', () => {
+    if (!activeChecklistSetId) return
+    renderChecklistTable(checklistCardsCache)
+  })
+  checklistCustomSortField?.addEventListener('change', () => {
+    const key = String(checklistCustomSortField?.value || '').trim() || 'cardNumber'
+    checklistSortState = {
+      key,
+      direction: String(checklistCustomSortDirection?.value || checklistSortState?.direction || 'asc')
+    }
+    renderChecklistTable(checklistCardsCache)
+  })
+  checklistCustomSortDirection?.addEventListener('change', () => {
+    checklistSortState = {
+      key: String(checklistCustomSortField?.value || checklistSortState?.key || 'cardNumber').trim(),
+      direction: String(checklistCustomSortDirection?.value || 'asc').trim()
+    }
+    renderChecklistTable(checklistCardsCache)
+  })
+  checklistCustomFilterField?.addEventListener('change', () => {
+    if (!activeChecklistSetId) return
+    renderChecklistTable(checklistCardsCache)
+  })
+  checklistCustomFilterOperator?.addEventListener('change', () => {
+    if (!activeChecklistSetId) return
+    renderChecklistTable(checklistCardsCache)
+  })
+  checklistCustomFilterValue?.addEventListener('input', () => {
+    if (!activeChecklistSetId) return
+    renderChecklistTable(checklistCardsCache)
+  })
+  checklistCustomFilterClearBtn?.addEventListener('click', () => {
+    if (checklistCustomFilterField) checklistCustomFilterField.value = ''
+    if (checklistCustomFilterOperator) checklistCustomFilterOperator.value = 'contains'
+    if (checklistCustomFilterValue) checklistCustomFilterValue.value = ''
+    if (!activeChecklistSetId) return
+    renderChecklistTable(checklistCardsCache)
+  })
+  checklistOddsCategoryFilter?.addEventListener('input', () => {
+    if (!activeChecklistSetId) return
+    loadChecklistSetDetail({ quiet: true }).catch(() => {})
+  })
+  refreshChecklistSetDetailBtn?.addEventListener('click', () => {
+    if (!activeChecklistSetId) return
+    loadChecklistSetDetail().catch(() => {})
+  })
+  closeChecklistSetModalBtn?.addEventListener('click', closeChecklistSetModal)
+  checklistSetModal?.addEventListener('click', (event) => {
+    if (event.target === checklistSetModal) {
+      closeChecklistSetModal()
+    }
+  })
+  closeChecklistOwnedCardModalBtn?.addEventListener('click', () => {
+    closeChecklistOwnedCardModal({ confirmed: false, details: null })
+  })
+  cancelChecklistOwnedCardBtn?.addEventListener('click', () => {
+    closeChecklistOwnedCardModal({ confirmed: false, details: null })
+  })
+  saveChecklistOwnedCardBtn?.addEventListener('click', () => {
+    const details = collectChecklistOwnedCardInput()
+    if (!details.sku) {
+      showChecklistStatus('SKU is required before adding owned card to inventory.', true)
+      return
+    }
+    if (!Number.isFinite(details.quantity) || details.quantity < 1) {
+      showChecklistStatus('Quantity must be at least 1 before adding owned card to inventory.', true)
+      return
+    }
+    closeChecklistOwnedCardModal({ confirmed: true, details })
+  })
+  checklistOwnedCardModal?.addEventListener('click', (event) => {
+    if (event.target === checklistOwnedCardModal) {
+      closeChecklistOwnedCardModal({ confirmed: false, details: null })
+    }
+  })
+  checklistDataBody?.addEventListener('change', (event) => {
+    const target = event?.target
+    if (!target?.classList?.contains('checklist-owned-checkbox')) return
+    handleChecklistOwnedToggleChange(event).catch(() => {})
+  })
+  closeChecklistImportProfileModalBtn?.addEventListener('click', () => {
+    closeChecklistImportProfileDialog({ confirmed: false, profile: null })
+  })
+  cancelChecklistImportProfileBtn?.addEventListener('click', () => {
+    closeChecklistImportProfileDialog({ confirmed: false, profile: null })
+  })
+  saveChecklistImportProfileBtn?.addEventListener('click', () => {
+    const profile = collectChecklistImportProfileInput()
+    if (!profile.setName) {
+      showChecklistStatus('Import profile requires a set name before ingest.', true)
+      return
+    }
+    if (!profile.year) {
+      showChecklistStatus('Import profile requires a year before ingest.', true)
+      return
+    }
+    if (!profile.manufacturer) {
+      showChecklistStatus('Import profile requires a manufacturer before ingest.', true)
+      return
+    }
+
+    saveChecklistImportProfile(profile)
+    closeChecklistImportProfileDialog({ confirmed: true, profile })
+  })
+  checklistImportProfileModal?.addEventListener('click', (event) => {
+    if (event.target === checklistImportProfileModal) {
+      closeChecklistImportProfileDialog({ confirmed: false, profile: null })
+    }
+  })
+  checklistSortHeaders.forEach((header) => {
+    header.addEventListener('click', () => {
+      toggleChecklistSort(header?.dataset?.sortKey)
+    })
+  })
+  oddsSortHeaders.forEach((header) => {
+    header.addEventListener('click', () => {
+      toggleOddsSort(header?.dataset?.sortKey)
+    })
+  })
+  checklistViewTabBtn?.addEventListener('click', () => {
+    if (!activeChecklistSetId) return
+    loadChecklistSetDetail({ quiet: true }).catch(() => {})
+  })
+  oddsViewTabBtn?.addEventListener('click', () => {
+    if (!activeChecklistSetId) return
+    loadChecklistSetDetail({ quiet: true }).catch(() => {})
+  })
+  checklistChooseFileBtn?.addEventListener('click', () => {
+    checklistImportFile?.click()
+  })
+  oddsChooseFileBtn?.addEventListener('click', () => {
+    oddsImportFile?.click()
+  })
+  checklistImportFile?.addEventListener('change', (event) => {
+    const file = event?.target?.files?.[0] || null
+    selectedChecklistFile = file
+    showChecklistStatus(file ? `Selected checklist file: ${file.name}` : 'Checklist file selection cleared.')
+  })
+  oddsImportFile?.addEventListener('change', (event) => {
+    const file = event?.target?.files?.[0] || null
+    selectedOddsFile = file
+    showChecklistStatus(file ? `Selected odds file: ${file.name}` : 'Odds file selection cleared.')
+  })
+  checklistImportBtn?.addEventListener('click', importChecklistRows)
+  oddsImportBtn?.addEventListener('click', importOddsRows)
+  checklistImportUrlBtn?.addEventListener('click', importChecklistFromUrl)
+  oddsImportUrlBtn?.addEventListener('click', importOddsFromUrl)
+  checklistImportUrl?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    importChecklistFromUrl().catch(() => {})
+  })
+  oddsImportUrl?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    importOddsFromUrl().catch(() => {})
+  })
+  openToppsChecklistBtn?.addEventListener('click', () => {
+    window.open('https://www.topps.com/pages/checklists', '_blank', 'noopener')
+  })
+  openToppsOddsBtn?.addEventListener('click', () => {
+    window.open('https://www.topps.com/pages/odds', '_blank', 'noopener')
+  })
+  syncOpenChecklistBtn?.addEventListener('click', () => {
+    syncOpenChecklistPopularSets().catch(() => {})
   })
   profileConnectionProviderSelect?.addEventListener('change', () => {
     editingConnectionProviderSlug = ''
@@ -3077,8 +5198,9 @@ function initAppNavigation() {
     closeHelpMenu()
   })
 
-  setActivePage(getInitialActivePage())
   renderProfileUi()
+  setChecklistView('checklist')
+  updateOpenChecklistButtonState()
   initializeAppBadge()
 }
 
@@ -3412,7 +5534,22 @@ async function resolveBackendUrl() {
     }
   }
 
-  // Step 2: Check for explicit backend URL in config.json (for GitHub Pages + Render)
+  // Step 2: Probe localhost ports even when origin isn't localhost
+  // (for LAN/file-hosted frontend talking to a local backend).
+  for (const port of BACKEND_PORTS) {
+    const url = `http://localhost:${port}`
+    try {
+      const res = await fetch(`${url}/health`, { method: 'GET' })
+      if (res.ok) {
+        console.log(`[Backend] Found on localhost:${port}`)
+        return url
+      }
+    } catch (err) {
+      // ignore and continue
+    }
+  }
+
+  // Step 3: Check for explicit backend URL in config.json (for GitHub Pages + Render)
   try {
     const res = await fetch('config.json')
     if (res.ok) {
@@ -3426,7 +5563,7 @@ async function resolveBackendUrl() {
     // config.json not found or parse error; continue to next method
   }
 
-  // Step 3: For HTTPS deployments, try same origin (backend on same host/port)
+  // Step 4: For HTTPS deployments, try same origin (backend on same host/port)
   if (typeof window !== 'undefined' && /^https?:/i.test(String(window.location?.origin || ''))) {
     try {
       const res = await fetch(`${window.location.origin}/health`, { method: 'GET' })
@@ -3439,7 +5576,7 @@ async function resolveBackendUrl() {
     }
   }
 
-  // Step 4: Local development fallback - probe localhost ports
+  // Step 5: Local development fallback - probe localhost ports
   for (const port of BACKEND_PORTS) {
     const url = `http://localhost:${port}`
     try {
@@ -3497,11 +5634,19 @@ async function checkAiConfig() {
 // Check AI config on load
 getBackendUrl().then(() => checkAiConfig()).catch(() => {})
 initAppNavigation()
+setActivePage('profile')
 ensureAuthProviders().catch(() => {})
-loadCurrentUserSession({ quiet: true }).catch(() => {})
+loadCurrentUserSession({ quiet: true })
+  .then(() => {
+    setActivePage(getInitialActivePage())
+  })
+  .catch(() => {
+    setActivePage('profile')
+  })
 loadCatalogSetOptions().catch(() => {})
 loadListingTemplates().catch(() => {})
 loadInventory().catch(() => {})
+loadChecklistCatalogData({ quiet: true }).catch(() => {})
 renderPrefillHistoryOptions()
 renderYearChecklist()
 refreshCommittedSkuCounterFromInventory()

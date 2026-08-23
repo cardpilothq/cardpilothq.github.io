@@ -8,6 +8,24 @@ let startupInProgress = false
 const HEALTH_TIMEOUT_MS = 700
 const MANAGER_TIMEOUT_MS = 1500
 let configuredBackendUrl = null
+let backendEnvironmentLabel = ''
+
+function normalizeEnvironmentLabel(rawEnvironment) {
+  const env = String(rawEnvironment || '').trim().toLowerCase()
+  if (!env) return ''
+  if (env === 'qa' || env === 'test') return 'TEST'
+  if (env === 'prod' || env === 'production' || env === 'live') return 'PROD'
+  return env.toUpperCase()
+}
+
+function inferEnvironmentLabelFromUrl(rawUrl) {
+  const url = String(rawUrl || '').toLowerCase()
+  if (!url) return ''
+  if (url.includes('-qa') || url.includes('qa.')) return 'TEST'
+  if (url.includes('-test') || url.includes('test.')) return 'TEST'
+  if (url.includes('-prod') || url.includes('prod.')) return 'PROD'
+  return ''
+}
 
 function isHostedEnvironment() {
   if (typeof window === 'undefined') return false
@@ -59,11 +77,18 @@ async function getConfiguredBackendUrl() {
 
 async function detectRunningBackendUrl() {
   if (isLocalhostEnvironment()) {
+    const currentPort = Number(window.location?.port || 0)
+    const canProbeCurrentOrigin = SERVER_CONTROL_PORTS.includes(currentPort)
+    if (!canProbeCurrentOrigin) {
+      // When running from a static file server (for example port 5500),
+      // probing same-origin /health only creates noisy 404s.
+    } else {
     try {
       const response = await fetchWithTimeout(`${window.location.origin}/health`, { method: 'GET' }, HEALTH_TIMEOUT_MS)
       if (response.ok) return window.location.origin
     } catch {
       // Fall back to localhost probes for local desktop use.
+    }
     }
   }
 
@@ -78,11 +103,17 @@ async function detectRunningBackendUrl() {
   }
 
   if (typeof window !== 'undefined' && /^https?:/i.test(String(window.location?.origin || ''))) {
+    const currentPort = Number(window.location?.port || 0)
+    const canProbeCurrentOrigin = SERVER_CONTROL_PORTS.includes(currentPort)
+    if (!canProbeCurrentOrigin) {
+      // Skip same-origin health checks when this origin is only serving static assets.
+    } else {
     try {
       const response = await fetchWithTimeout(`${window.location.origin}/health`, { method: 'GET' }, HEALTH_TIMEOUT_MS)
       if (response.ok) return window.location.origin
     } catch {
       // Fall back to localhost probes for local desktop use.
+    }
     }
   }
 
@@ -107,6 +138,21 @@ async function detectRunningBackendUrl() {
 async function checkServerStatus() {
   const runningUrl = await detectRunningBackendUrl()
   backendBaseUrl = runningUrl
+  backendEnvironmentLabel = ''
+  if (runningUrl) {
+    try {
+      const response = await fetchWithTimeout(`${runningUrl}/config`, { method: 'GET' }, HEALTH_TIMEOUT_MS)
+      if (response.ok) {
+        const data = await response.json()
+        backendEnvironmentLabel = normalizeEnvironmentLabel(data?.app?.environment)
+      }
+    } catch {
+      // Best-effort only; status detection should not fail on config lookup.
+    }
+    if (!backendEnvironmentLabel) {
+      backendEnvironmentLabel = inferEnvironmentLabelFromUrl(runningUrl)
+    }
+  }
   return Boolean(runningUrl)
 }
 
@@ -171,7 +217,8 @@ async function updateServerStatus() {
   
   if (isRunning) {
     statusDot.classList.add('running')
-    statusText.textContent = backendBaseUrl ? `Server Running (${backendBaseUrl})` : 'Server Running'
+    const runningLabel = backendEnvironmentLabel || (isHostedApp ? 'Hosted' : 'Local')
+    statusText.textContent = `Server Running (${runningLabel})`
     if (isHostedApp) {
       serverToggleBtn.textContent = 'Hosted Mode'
       serverToggleBtn.disabled = true

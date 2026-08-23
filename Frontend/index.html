@@ -20,6 +20,7 @@
         <label class="sport-picker" for="sportSelect">
           <span>Sport</span>
           <select id="sportSelect">
+            <option value="Baseball">Baseball</option>
             <option value="Football">Football</option>
             <option value="Basketball">Basketball</option>
             <option value="Soccer">Soccer</option>
@@ -49,7 +50,7 @@
   </div>
 
   <div class="app-nav" role="tablist" aria-label="Workspace navigation">
-    <button id="navHomeBtn" type="button" class="nav-btn active" role="tab" aria-selected="true">
+    <button id="navHomeBtn" type="button" class="nav-btn" role="tab" aria-selected="false">
       <span class="nav-btn-label">Home</span>
       <span class="nav-btn-hint">Overview</span>
     </button>
@@ -69,13 +70,17 @@
       <span class="nav-btn-label">Listings</span>
       <span class="nav-btn-hint">Build Drafts</span>
     </button>
-    <button id="navProfileBtn" type="button" class="nav-btn" role="tab" aria-selected="false">
+    <button id="navChecklistBtn" type="button" class="nav-btn" role="tab" aria-selected="false">
+      <span class="nav-btn-label">Checklist</span>
+      <span class="nav-btn-hint">Sets + Odds</span>
+    </button>
+    <button id="navProfileBtn" type="button" class="nav-btn active" role="tab" aria-selected="true">
       <span class="nav-btn-label">Profile</span>
       <span class="nav-btn-hint">Account + Links</span>
     </button>
   </div>
 
-  <section id="homePage" class="app-page active">
+  <section id="homePage" class="app-page">
     <div class="home-panel">
       <h2>Welcome to your card workspace</h2>
       <p>Choose a sport, then scan new cards or manage your saved inventory.</p>
@@ -398,8 +403,6 @@
             <table id="inventoryTable">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Sport</th>
                   <th>SKU</th>
                   <th>Name</th>
                   <th>Team</th>
@@ -407,13 +410,105 @@
                   <th>Year</th>
                   <th>Card #</th>
                   <th>Quantity</th>
-                  <th>Parallel</th>
                   <th>Updated</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="inventoryBody"></tbody>
             </table>
+          </div>
+
+          <div id="inventoryDetailModal" class="modal">
+            <div class="modal-content prefill-modal-content">
+              <div class="modal-header">
+                <h2>Inventory Record Details</h2>
+                <button class="modal-close" id="closeInventoryDetailModalBtn">&times;</button>
+              </div>
+              <div class="modal-body">
+                <div id="inventoryDetailSummary" class="prefill-summary"></div>
+                <p class="prefill-hint">Edit detailed inventory fields here while keeping the main table compact.</p>
+                <div class="prefill-grid feedback-grid">
+                  <label class="prefill-field">
+                    <span>Sport</span>
+                    <input id="inventoryDetailSportInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>SKU</span>
+                    <input id="inventoryDetailSkuInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Name</span>
+                    <input id="inventoryDetailNameInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Team</span>
+                    <input id="inventoryDetailTeamInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Position</span>
+                    <input id="inventoryDetailPositionInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Set</span>
+                    <input id="inventoryDetailSetInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Year</span>
+                    <input id="inventoryDetailYearInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Card #</span>
+                    <input id="inventoryDetailCardNumberInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Quantity</span>
+                    <input id="inventoryDetailQuantityInput" type="number" min="1" step="1" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Parallel</span>
+                    <input id="inventoryDetailParallelInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Rookie</span>
+                    <select id="inventoryDetailRookieSelect">
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </label>
+                  <label class="prefill-field">
+                    <span>Autograph</span>
+                    <select id="inventoryDetailAutographSelect">
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </label>
+                  <label class="prefill-field">
+                    <span>Pick From</span>
+                    <input id="inventoryDetailPickFromInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Filename</span>
+                    <input id="inventoryDetailFilenameInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Picture URL</span>
+                    <input id="inventoryDetailPictureUrlInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Title</span>
+                    <input id="inventoryDetailTitleInput" type="text" />
+                  </label>
+                  <label class="prefill-field">
+                    <span>Description</span>
+                    <textarea id="inventoryDetailDescriptionInput" rows="4"></textarea>
+                  </label>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button id="cancelInventoryDetailBtn" type="button" class="secondary-btn">Cancel</button>
+                <button id="saveInventoryDetailBtn" type="button" class="primary-btn">Save Changes</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -540,7 +635,332 @@
     </div>
   </section>
 
-  <section id="profilePage" class="app-page">
+  <section id="checklistPage" class="app-page">
+    <div class="workspace-shell">
+      <div class="workspace-hero">
+        <div>
+          <div class="workspace-eyebrow">Checklist Workspace</div>
+          <h2>Import 2025-2026 set checklists and pack odds</h2>
+          <p>Bring in set-level checklist and odds data so card matching during scan and inventory review has stronger player and card-number context.</p>
+        </div>
+        <div class="workspace-hero-badges">
+          <span class="workspace-badge">2025 + 2026 focus</span>
+          <span class="workspace-badge">Filter-ready views</span>
+        </div>
+      </div>
+
+      <div class="workspace-layout">
+        <aside class="workspace-sidebar">
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">Topps Sources</div>
+            <p class="workspace-panel-copy">Use official Topps pages to download set checklist and odds files before importing below.</p>
+            <div class="workspace-button-stack">
+              <button id="openToppsChecklistBtn" type="button">Open Topps Checklists</button>
+              <button id="openToppsOddsBtn" type="button">Open Topps Odds</button>
+              <button id="syncOpenChecklistBtn" type="button" class="secondary-btn">Sync All Open Checklist Sets</button>
+            </div>
+          </div>
+
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">Set Metadata</div>
+            <label class="profile-field">
+              <span>Year</span>
+              <select id="checklistImportYear">
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2025-2026">2025-2026</option>
+              </select>
+            </label>
+            <label class="profile-field">
+              <span>Brand</span>
+              <input id="checklistImportBrand" type="text" placeholder="Topps" />
+            </label>
+            <label class="profile-field">
+              <span>Set Name</span>
+              <input id="checklistImportSetName" type="text" placeholder="Series 1" />
+            </label>
+          </div>
+
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">Import Checklist</div>
+            <input id="checklistImportFile" type="file" accept=".csv,.tsv,.txt,.json,.pdf,.xlsx,.xls,.xlsm,.xlsb" hidden />
+            <div class="workspace-button-stack">
+              <button id="checklistChooseFileBtn" type="button" class="secondary-btn">Choose File</button>
+              <button id="checklistImportBtn" type="button">Import Checklist</button>
+            </div>
+            <label class="profile-field profile-field-wide">
+              <span>Checklist URL (Topps page or PDF)</span>
+              <input id="checklistImportUrl" type="url" placeholder="https://..." />
+            </label>
+            <button id="checklistImportUrlBtn" type="button" class="secondary-btn">Import Checklist From URL</button>
+            <label class="profile-field profile-field-wide">
+              <span>Paste Checklist Rows (CSV/TSV)</span>
+              <textarea id="checklistPasteInput" rows="5" placeholder="Card Number,Player,Team,Parallel"></textarea>
+            </label>
+          </div>
+
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">Import Pack Odds</div>
+            <input id="oddsImportFile" type="file" accept=".csv,.tsv,.txt,.json,.pdf,.xlsx,.xls,.xlsm,.xlsb" hidden />
+            <div class="workspace-button-stack">
+              <button id="oddsChooseFileBtn" type="button" class="secondary-btn">Choose File</button>
+              <button id="oddsImportBtn" type="button">Import Odds</button>
+            </div>
+            <label class="profile-field profile-field-wide">
+              <span>Odds URL (Topps page or PDF)</span>
+              <input id="oddsImportUrl" type="url" placeholder="https://..." />
+            </label>
+            <button id="oddsImportUrlBtn" type="button" class="secondary-btn">Import Odds From URL</button>
+            <label class="profile-field profile-field-wide">
+              <span>Paste Odds Rows (CSV/TSV)</span>
+              <textarea id="oddsPasteInput" rows="5" placeholder="Category,Insert,Odds,Pack Rate"></textarea>
+            </label>
+          </div>
+        </aside>
+
+        <div class="workspace-content">
+          <div class="checklist-toolbar workspace-card">
+            <div class="checklist-toolbar-row">
+              <label>
+                <span>Year</span>
+                <select id="checklistYearFilter">
+                  <option value="">All</option>
+                  <option value="2026">2026</option>
+                  <option value="2025">2025</option>
+                  <option value="2025-2026">2025-2026</option>
+                </select>
+              </label>
+              <label>
+                <span>Set Search</span>
+                <input id="checklistSetSearchInput" type="text" placeholder="Set or brand..." />
+              </label>
+              <button id="refreshChecklistCatalogBtn" type="button" class="secondary-btn">Refresh</button>
+            </div>
+          </div>
+
+          <div id="checklistStatus" class="inventory-status workspace-status" style="display:none;"></div>
+
+          <div class="table-wrapper workspace-table-wrap checklist-data-panel active">
+            <table id="checklistSetsTable">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Brand</th>
+                  <th>Set</th>
+                  <th>Last Import</th>
+                  <th>Checklist Rows</th>
+                  <th>Odds Rows</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="checklistSetsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="checklistSetModal" class="modal checklist-set-modal">
+      <div class="modal-content checklist-set-modal-content">
+        <div class="modal-header">
+          <h2 id="checklistSetModalTitle">Set Drill Down</h2>
+          <button class="modal-close" id="closeChecklistSetModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="checklist-toolbar workspace-card checklist-set-modal-toolbar">
+            <div class="checklist-toolbar-row checklist-set-modal-filters">
+              <label>
+                <span>Search</span>
+                <input id="checklistSearchInput" type="text" placeholder="Card #, player, team, insert..." />
+              </label>
+              <label>
+                <span>Odds Category</span>
+                <input id="checklistOddsCategoryFilter" type="text" placeholder="Auto, Relic, Parallel..." />
+              </label>
+              <label>
+                <span>Rookie Filter</span>
+                <select id="checklistRookieFilter">
+                  <option value="all">All</option>
+                  <option value="rookie">Rookies Only</option>
+                  <option value="non-rookie">Non-Rookies Only</option>
+                  <option value="star">Starred (*) Only</option>
+                </select>
+              </label>
+              <button id="refreshChecklistSetDetailBtn" type="button" class="secondary-btn">Refresh</button>
+            </div>
+
+            <div class="checklist-toolbar-row checklist-set-modal-custom-controls">
+              <label>
+                <span>Sort By</span>
+                <select id="checklistCustomSortField">
+                  <option value="cardNumber">Card #</option>
+                  <option value="insertSet">Insert Set</option>
+                  <option value="player">Player</option>
+                  <option value="team">Team</option>
+                </select>
+              </label>
+              <label>
+                <span>Direction</span>
+                <select id="checklistCustomSortDirection">
+                  <option value="asc">A to Z</option>
+                  <option value="desc">Z to A</option>
+                </select>
+              </label>
+              <label>
+                <span>Filter Field</span>
+                <select id="checklistCustomFilterField">
+                  <option value="">Any</option>
+                  <option value="cardNumber">Card #</option>
+                  <option value="insertSet">Insert Set</option>
+                  <option value="player">Player</option>
+                  <option value="team">Team</option>
+                  <option value="rookie">Rookie</option>
+                </select>
+              </label>
+              <label>
+                <span>Operator</span>
+                <select id="checklistCustomFilterOperator">
+                  <option value="contains">Contains</option>
+                  <option value="starts_with">Starts With</option>
+                  <option value="equals">Equals</option>
+                  <option value="not_equals">Not Equals</option>
+                  <option value="is_empty">Is Empty</option>
+                  <option value="is_not_empty">Is Not Empty</option>
+                </select>
+              </label>
+              <label>
+                <span>Filter Value</span>
+                <input id="checklistCustomFilterValue" type="text" placeholder="Type to filter..." />
+              </label>
+              <button id="checklistCustomFilterClearBtn" type="button" class="secondary-btn">Clear Custom</button>
+            </div>
+
+            <div class="scan-command-tabs checklist-subtabs" role="tablist" aria-label="Checklist data views">
+              <button id="checklistViewTabBtn" type="button" class="scan-command-tab active" data-checklist-view="checklist" role="tab" aria-selected="true">Checklist View</button>
+              <button id="oddsViewTabBtn" type="button" class="scan-command-tab" data-checklist-view="odds" role="tab" aria-selected="false">Odds View</button>
+            </div>
+          </div>
+
+          <div id="checklistDataPanel" class="table-wrapper workspace-table-wrap checklist-data-panel active">
+            <table id="checklistDataTable">
+              <thead>
+                <tr>
+                  <th data-sort-key="cardNumber">Card #</th>
+                  <th data-sort-key="insertSet">Insert Set</th>
+                  <th data-sort-key="player">Player</th>
+                  <th data-sort-key="team">Team</th>
+                  <th>Owned</th>
+                </tr>
+              </thead>
+              <tbody id="checklistDataBody"></tbody>
+            </table>
+          </div>
+
+          <div id="oddsDataPanel" class="table-wrapper workspace-table-wrap checklist-data-panel">
+            <table id="oddsDataTable">
+              <thead>
+                <tr>
+                  <th data-sort-key="category">Category</th>
+                  <th data-sort-key="itemName">Insert</th>
+                  <th data-sort-key="oddsText">Odds</th>
+                  <th data-sort-key="packRate">Pack Rate</th>
+                  <th data-sort-key="notes">Notes</th>
+                </tr>
+              </thead>
+              <tbody id="checklistOddsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="checklistImportProfileModal" class="modal">
+      <div class="modal-content prefill-modal-content">
+        <div class="modal-header">
+          <h2>Import Profile</h2>
+          <button class="modal-close" id="closeChecklistImportProfileModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="checklistImportProfileSummary" class="prefill-summary"></div>
+          <p class="prefill-hint">Save metadata now so future checklist parsing, card scanning, inventory commit, and listing templates have better defaults.</p>
+          <div class="prefill-grid feedback-grid">
+            <label class="prefill-field">
+              <span>Set Name</span>
+              <input id="checklistImportProfileSetName" type="text" placeholder="Series 1, Chrome, Disney 100..." />
+            </label>
+            <label class="prefill-field">
+              <span>Year</span>
+              <input id="checklistImportProfileYear" type="text" placeholder="2025" />
+            </label>
+            <label class="prefill-field">
+              <span>Manufacturer</span>
+              <input id="checklistImportProfileManufacturer" type="text" placeholder="Topps, Panini, Disney..." />
+            </label>
+            <label class="prefill-field">
+              <span>Custom Columns / Details</span>
+              <input id="checklistImportProfileCustomColumns" type="text" placeholder="parallel, serial, insert-tier, franchise..." />
+            </label>
+            <label class="prefill-field">
+              <span>Notes</span>
+              <textarea id="checklistImportProfileNotes" rows="3" placeholder="Any parsing hints, naming conventions, or provider-specific notes."></textarea>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelChecklistImportProfileBtn" type="button" class="secondary-btn">Skip</button>
+          <button id="saveChecklistImportProfileBtn" type="button" class="primary-btn">Save Profile</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="checklistOwnedCardModal" class="modal">
+      <div class="modal-content prefill-modal-content">
+        <div class="modal-header">
+          <h2>Add Owned Card to Inventory</h2>
+          <button class="modal-close" id="closeChecklistOwnedCardModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="checklistOwnedCardSummary" class="prefill-summary"></div>
+          <p class="prefill-hint">Confirm ownership details before this checklist card is committed into inventory.</p>
+          <div class="prefill-grid feedback-grid">
+            <label class="prefill-field">
+              <span>SKU</span>
+              <input id="checklistOwnedSkuInput" type="text" placeholder="SKU-000001" />
+            </label>
+            <label class="prefill-field">
+              <span>Quantity</span>
+              <input id="checklistOwnedQuantityInput" type="number" min="1" step="1" value="1" />
+            </label>
+            <div id="checklistOwnedParallelDisplay" class="prefill-summary"></div>
+            <label class="prefill-field">
+              <span>Rookie</span>
+              <select id="checklistOwnedRookieSelect">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </label>
+            <label class="prefill-field">
+              <span>Autograph</span>
+              <select id="checklistOwnedAutographSelect">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </label>
+            <label class="prefill-field">
+              <span>Notes</span>
+              <textarea id="checklistOwnedNotesInput" rows="3" placeholder="Condition, acquisition source, grading plan, or any details you need for this inventory row."></textarea>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelChecklistOwnedCardBtn" type="button" class="secondary-btn">Cancel</button>
+          <button id="saveChecklistOwnedCardBtn" type="button" class="primary-btn">Add to Inventory</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="profilePage" class="app-page active">
     <div class="profile-shell">
       <div class="profile-hero">
         <div>
@@ -550,82 +970,85 @@
         <div id="profileHeroStatus" class="profile-hero-status">Loading account tools...</div>
       </div>
 
-      <div id="profileAuthPanel" class="profile-grid profile-auth-grid">
-        <div class="profile-card profile-spotlight-card">
-          <div class="profile-spotlight-orb"></div>
-          <div class="workspace-eyebrow">CardPilot Identity</div>
-          <h3>Sign in to your personal card desk</h3>
-          <p class="profile-card-copy">A private CardPilot HQ account keeps your scans, pricing memory, listing prep, and marketplace connections in one professional workspace.</p>
-          <div class="profile-spotlight-metrics">
-            <div class="profile-spotlight-metric">
-              <strong>Lower waste</strong>
-              <span>Reuse pricing cache and avoid duplicate research calls.</span>
+      <div id="profileAuthPanel" class="profile-auth-simple">
+        <div class="auth-split-layout">
+          <aside class="auth-brand-panel">
+            <div class="auth-brand-kicker">CardPilot HQ</div>
+            <h3>Sign in to continue</h3>
+            <p>Access your workspace after authentication. New users can create an account in seconds.</p>
+          </aside>
+
+          <div class="profile-card auth-portal-card">
+            <h3 id="authPortalTitle">Sign in</h3>
+            <p class="profile-card-copy" id="authPortalSubtitle">Use your email and password to access CardPilot HQ.</p>
+            <div id="profileAuthStatus" class="profile-auth-status">Enter your credentials to continue.</div>
+
+            <div id="authLoginPortal" class="auth-portal active">
+              <label class="profile-field">
+                <span>Email</span>
+                <input id="loginEmailInput" type="email" placeholder="you@example.com" />
+              </label>
+              <label class="profile-field">
+                <span>Password</span>
+                <input id="loginPasswordInput" type="password" placeholder="Password" />
+              </label>
+              <label class="profile-remember-row">
+                <input id="rememberMeCheckbox" type="checkbox" />
+                <span>Remember me for 30 days</span>
+              </label>
+              <button id="loginSubmitBtn" type="button">Sign In</button>
+              <button id="googleLoginBtn" type="button" class="secondary-btn">Sign In with Google</button>
+              <div class="auth-inline-links">
+                <a id="showForgotPasswordLink" href="#">Forgot password?</a>
+                <a id="showSignupLink" href="#">Sign up</a>
+              </div>
             </div>
-            <div class="profile-spotlight-metric">
-              <strong>Better accuracy</strong>
-              <span>Keep card records scoped to the right collector and inventory.</span>
+
+            <div id="authSignupPortal" class="auth-portal">
+              <label class="profile-field">
+                <span>Display Name</span>
+                <input id="signupDisplayNameInput" type="text" placeholder="Jane Collector" />
+              </label>
+              <label class="profile-field">
+                <span>Email</span>
+                <input id="signupEmailInput" type="email" placeholder="you@example.com" />
+              </label>
+              <label class="profile-field">
+                <span>Password</span>
+                <input id="signupPasswordInput" type="password" placeholder="At least 8 characters" />
+              </label>
+              <label class="profile-remember-row">
+                <input id="rememberMeSignupCheckbox" type="checkbox" />
+                <span>Remember me for 30 days</span>
+              </label>
+              <button id="signupSubmitBtn" type="button" class="primary-btn">Create Account</button>
+              <div class="auth-inline-links auth-inline-links-single">
+                <a id="backToLoginFromSignupLink" href="#">Back to sign in</a>
+              </div>
             </div>
-            <div class="profile-spotlight-metric">
-              <strong>Connected workflow</strong>
-              <span>Stage eBay, 130point, CollX, Ludex, and custom tools in one profile.</span>
+
+            <div id="authResetPortal" class="auth-portal">
+              <label class="profile-field">
+                <span>Account Email</span>
+                <input id="recoveryEmailInput" type="email" placeholder="you@example.com" />
+              </label>
+              <label class="profile-field">
+                <span>Display Name</span>
+                <input id="recoveryDisplayNameInput" type="text" placeholder="Display name on the account" />
+              </label>
+              <label class="profile-field">
+                <span>New Password</span>
+                <input id="recoveryNewPasswordInput" type="password" placeholder="At least 8 characters" />
+              </label>
+              <button id="resetPasswordBtn" type="button" class="secondary-btn">Reset Password</button>
+              <div class="auth-inline-links auth-inline-links-single">
+                <a id="backToLoginFromResetLink" href="#">Back to sign in</a>
+              </div>
             </div>
+
+            <input id="recoveryIdentifierInput" type="text" hidden />
+            <button id="findAccountBtn" type="button" class="secondary-btn" style="display:none;">Find My Account</button>
           </div>
-        </div>
-
-        <div class="profile-card profile-auth-card">
-          <h3>Create your CardPilot HQ account</h3>
-          <p class="profile-card-copy">No GitHub account required. This stays inside your CardPilot HQ environment.</p>
-          <label class="profile-field">
-            <span>Display Name</span>
-            <input id="signupDisplayNameInput" type="text" placeholder="Jane Collector" />
-          </label>
-          <label class="profile-field">
-            <span>Email</span>
-            <input id="signupEmailInput" type="email" placeholder="you@example.com" />
-          </label>
-          <label class="profile-field">
-            <span>Password</span>
-            <input id="signupPasswordInput" type="password" placeholder="At least 8 characters" />
-          </label>
-          <button id="signupSubmitBtn" type="button" class="primary-btn">Create Account</button>
-        </div>
-
-        <div class="profile-card profile-auth-card">
-          <h3>Sign in</h3>
-          <p class="profile-card-copy">Use your CardPilot HQ account to load your profile and connection registry.</p>
-          <label class="profile-field">
-            <span>Email</span>
-            <input id="loginEmailInput" type="email" placeholder="you@example.com" />
-          </label>
-          <label class="profile-field">
-            <span>Password</span>
-            <input id="loginPasswordInput" type="password" placeholder="Password" />
-          </label>
-          <button id="loginSubmitBtn" type="button">Sign In</button>
-
-          <hr />
-          <h3>Need help signing in?</h3>
-          <p class="profile-card-copy">Find your account using email or display name, or reset your password after verification.</p>
-
-          <label class="profile-field">
-            <span>Find Account (email or display name)</span>
-            <input id="recoveryIdentifierInput" type="text" placeholder="jzastudil2@gmail.com or your display name" />
-          </label>
-          <button id="findAccountBtn" type="button" class="secondary-btn">Find My Account</button>
-
-          <label class="profile-field">
-            <span>Reset Password: Account Email</span>
-            <input id="recoveryEmailInput" type="email" placeholder="you@example.com" />
-          </label>
-          <label class="profile-field">
-            <span>Reset Password: Display Name</span>
-            <input id="recoveryDisplayNameInput" type="text" placeholder="Display name on the account" />
-          </label>
-          <label class="profile-field">
-            <span>Reset Password: New Password</span>
-            <input id="recoveryNewPasswordInput" type="password" placeholder="At least 8 characters" />
-          </label>
-          <button id="resetPasswordBtn" type="button" class="secondary-btn">Reset Password</button>
         </div>
       </div>
 
@@ -634,6 +1057,9 @@
           <div class="profile-card-header">
             <h3>Your Profile</h3>
             <button id="logoutBtn" type="button" class="secondary-btn">Log Out</button>
+          </div>
+          <div class="profile-actions-row">
+            <button id="googleLinkBtn" type="button" class="secondary-btn">Link Google Account</button>
           </div>
           <div id="profileAccountSummary" class="profile-summary"></div>
           <label class="profile-field">
@@ -703,8 +1129,8 @@
   </section>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="app.js?v=20260628c"></script>
+  <script src="app.js?v=20260823a"></script>
   <script src="column-manager.js?v=20260627j"></script>
-  <script src="server-control.js?v=20260627j"></script>
+  <script src="server-control.js?v=20260823a"></script>
 </body>
 </html>

@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#667eea" />
   <title>CardPilot HQ</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=20260701a" />
+  <link rel="stylesheet" href="../Frontend/styles.css?v=20260701a" />
 </head>
 
 <body>
@@ -24,6 +25,8 @@
             <option value="Soccer">Soccer</option>
           </select>
         </label>
+
+        <button id="accountProfileBtn" type="button" class="account-profile-btn">Sign In</button>
 
         <div class="help-menu" id="helpMenu">
           <button id="helpMenuToggle" type="button" class="help-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Help and feedback">?</button>
@@ -46,7 +49,7 @@
   </div>
 
   <div class="app-nav" role="tablist" aria-label="Workspace navigation">
-    <button id="navHomeBtn" type="button" class="nav-btn active" role="tab" aria-selected="true">
+    <button id="navHomeBtn" type="button" class="nav-btn" role="tab" aria-selected="false">
       <span class="nav-btn-label">Home</span>
       <span class="nav-btn-hint">Overview</span>
     </button>
@@ -66,9 +69,13 @@
       <span class="nav-btn-label">Listings</span>
       <span class="nav-btn-hint">Build Drafts</span>
     </button>
+    <button id="navProfileBtn" type="button" class="nav-btn active" role="tab" aria-selected="true">
+      <span class="nav-btn-label">Profile</span>
+      <span class="nav-btn-hint">Account + Links</span>
+    </button>
   </div>
 
-  <section id="homePage" class="app-page active">
+  <section id="homePage" class="app-page">
     <div class="home-panel">
       <h2>Welcome to your card workspace</h2>
       <p>Choose a sport, then scan new cards or manage your saved inventory.</p>
@@ -206,249 +213,391 @@
         </div>
       </div>
     </div>
-
-    <div id="importPrefillModal" class="modal">
-      <div class="modal-content prefill-modal-content">
-        <div class="modal-header">
-          <h2>Prepare Import</h2>
-          <button class="modal-close" id="closeImportPrefillModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div id="prefillImportSummary" class="prefill-summary"></div>
-          <p class="prefill-hint">Use known metadata to prefill incoming rows. Team and set history are remembered per sport for next time.</p>
-          <div class="prefill-grid">
-            <div class="prefill-field">
-              <span>Team</span>
-              <div id="prefillTeamChips" class="prefill-chip-list"></div>
-              <div class="prefill-entry-row">
-                <input id="prefillTeamInput" type="text" list="prefillTeamOptions" placeholder="Type a team and press Enter" />
-              </div>
-              <datalist id="prefillTeamOptions"></datalist>
-            </div>
-            <div class="prefill-field">
-              <span>Set</span>
-              <div class="prefill-set-panel">
-                <div class="prefill-set-header">Choose one or more set options</div>
-                <div id="prefillSetChecklist" class="prefill-set-checklist"></div>
-                <div class="prefill-set-add-row">
-                  <input id="prefillSetInput" type="text" placeholder="Add new set and press Enter" />
-                  <button id="clearPrefillSetsBtn" type="button" class="prefill-clear-btn">Clear History</button>
-                </div>
-              </div>
-            </div>
-            <label class="prefill-field">
-              <span>Year</span>
-              <details id="prefillYearDetails" class="prefill-year-dropdown">
-                <summary id="prefillYearSummary">Select year options</summary>
-                <div id="prefillYearChecklist" class="prefill-year-checklist"></div>
-              </details>
-            </label>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button id="cancelImportPrefillBtn" type="button" class="secondary-btn">Cancel</button>
-          <button id="confirmImportPrefillBtn" type="button" class="primary-btn">Import</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="feedbackModal" class="modal">
-      <div class="modal-content feedback-modal-content">
-        <div class="modal-header">
-          <h2 id="feedbackModalTitle">Submit Feedback</h2>
-          <button class="modal-close" id="closeFeedbackModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p class="prefill-hint">Logs and diagnostics are attached automatically to speed up triage.</p>
-          <div class="prefill-grid feedback-grid">
-            <label class="prefill-field">
-              <span>Title</span>
-              <input id="feedbackTitleInput" type="text" placeholder="Short summary" />
-            </label>
-            <label class="prefill-field">
-              <span>Contact Email (optional)</span>
-              <input id="feedbackEmailInput" type="email" placeholder="you@example.com" />
-            </label>
-            <label class="prefill-field feedback-description-field">
-              <span>Details</span>
-              <textarea id="feedbackMessageInput" rows="6" placeholder="What happened, what you expected, and any steps to reproduce."></textarea>
-            </label>
-          </div>
-          <div id="feedbackStatus" class="inventory-status" style="display:none;"></div>
-        </div>
-        <div class="modal-footer">
-          <button id="cancelFeedbackBtn" type="button" class="secondary-btn">Cancel</button>
-          <button id="submitFeedbackBtn" type="button" class="primary-btn">Submit</button>
-        </div>
-      </div>
-    </div>
-
-  <!-- Column Manager Modal -->
-  <div id="columnModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Manage Columns</h2>
-        <button class="modal-close" id="closeColumnModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div id="columnList"></div>
-        <div id="columnTools"></div>
-      </div>
-      <div class="modal-footer">
-        <button id="resetColumnsBtn" class="secondary-btn">Reset to Default</button>
-        <button id="saveColumnsBtn" class="primary-btn">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Image Viewer Modal -->
-  <div id="imageViewerModal" class="image-modal">
-    <button id="imageViewerClose" class="image-modal-close" aria-label="Close image viewer">&times;</button>
-    <div class="image-modal-content">
-      <div class="image-modal-toolbar">
-        <button id="imagePrev" type="button" aria-label="Previous image">&#9664;</button>
-        <button id="imageZoomOut" type="button" aria-label="Zoom out">-</button>
-        <button id="imageZoomIn" type="button" aria-label="Zoom in">+</button>
-        <button id="imageZoomReset" type="button" aria-label="Reset zoom">Reset</button>
-        <button id="imageNext" type="button" aria-label="Next image">&#9654;</button>
-      </div>
-      <div id="imageViewerStage" class="image-modal-stage">
-        <img id="imageViewerImg" alt="Card image preview" />
-      </div>
-      <div id="imageViewerCaption" class="image-modal-caption"></div>
-    </div>
-  </div>
-
   </section>
 
   <section id="inventoryPage" class="app-page">
-    <div class="inventory-header">
-      <h2>Inventory</h2>
-      <div class="inventory-actions">
-        <button id="refreshInventoryBtn" type="button">Refresh Inventory</button>
-        <button id="openPricingAnalyzeBtn" type="button">Open Pricing & Analyze</button>
-        <button id="rescanInventoryBtn" type="button">Rescan Data</button>
-        <button id="verifyEbayFieldsBtn" type="button">Verify eBay Fields</button>
-        <button id="exportEbayCsvBtn" type="button">Export eBay CSV</button>
-        <button id="clearSportInventoryBtn" type="button">Clear This Sport</button>
-        <button id="clearAllInventoryBtn" type="button">Clear All Inventory</button>
+    <div class="workspace-shell">
+      <div class="workspace-hero">
+        <div>
+          <div class="workspace-eyebrow">Inventory Workspace</div>
+          <h2>Collector inventory tuned for fast listing prep</h2>
+          <p>Review extracted card data, preserve clean duplicates, and stage rows for eBay listing drafts without losing track of sport-specific card context.</p>
+        </div>
+        <div class="workspace-hero-badges">
+          <span class="workspace-badge">Scoped by user</span>
+          <span class="workspace-badge">Ready for listing drafts</span>
+        </div>
       </div>
-    </div>
-    <div class="inventory-draft-panel">
-      <div class="inventory-draft-title">eBay Listing Drafts</div>
-      <div class="inventory-draft-row">
-        <label>
-          <span>Template</span>
-          <select id="listingTemplateSelect"></select>
-        </label>
-        <label>
-          <span>Card ID or SKU</span>
-          <input id="listingCardIdInput" type="text" placeholder="Card ID, SKU, or CSV list" />
-        </label>
-        <label>
-          <span>Chase Card ID or SKU</span>
-          <input id="listingChaseCardIdInput" type="text" placeholder="Optional for mystery packs" />
-        </label>
-        <button id="buildListingDraftBtn" type="button">Build Draft</button>
-        <button id="cancelListingDraftBtn" type="button" class="secondary-btn">Cancel</button>
+
+      <div class="workspace-layout">
+        <aside class="workspace-sidebar">
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">Inventory Actions</div>
+            <div class="workspace-button-stack">
+              <button id="refreshInventoryBtn" type="button">Refresh Inventory</button>
+              <button id="openPricingAnalyzeBtn" type="button">Open Pricing & Analyze</button>
+              <button id="rescanInventoryBtn" type="button">Rescan Data</button>
+            </div>
+          </div>
+
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">eBay Readiness</div>
+            <p class="workspace-panel-copy">Validate which inventory fields are ready for export and download your CSV from the same action rail.</p>
+            <div class="workspace-button-stack">
+              <button id="verifyEbayFieldsBtn" type="button">Verify eBay Fields</button>
+              <button id="exportEbayCsvBtn" type="button">Export eBay CSV</button>
+            </div>
+          </div>
+
+          <div class="workspace-panel workspace-panel-danger">
+            <div class="workspace-panel-title">Inventory Cleanup</div>
+            <p class="workspace-panel-copy">Clear only the active sport or purge the current account inventory intentionally.</p>
+            <div class="workspace-button-stack">
+              <button id="clearSportInventoryBtn" type="button" class="secondary-btn">Clear This Sport</button>
+              <button id="clearAllInventoryBtn" type="button" class="secondary-btn">Clear All Inventory</button>
+            </div>
+          </div>
+        </aside>
+
+        <div class="workspace-content">
+          <div class="inventory-draft-panel workspace-card">
+            <div class="inventory-draft-title">eBay Listing Drafts</div>
+            <div class="inventory-draft-row">
+              <label>
+                <span>Template</span>
+                <select id="listingTemplateSelect"></select>
+              </label>
+              <label>
+                <span>Card ID or SKU</span>
+                <input id="listingCardIdInput" type="text" placeholder="Card ID, SKU, or CSV list" />
+              </label>
+              <label>
+                <span>Chase Card ID or SKU</span>
+                <input id="listingChaseCardIdInput" type="text" placeholder="Optional for mystery packs" />
+              </label>
+              <button id="buildListingDraftBtn" type="button">Build Draft</button>
+              <button id="cancelListingDraftBtn" type="button" class="secondary-btn">Cancel</button>
+            </div>
+            <pre id="listingDraftOutput" class="inventory-draft-output">Select a template and enter a card ID or SKU to generate a listing draft.</pre>
+          </div>
+          <div id="inventoryStatus" class="inventory-status workspace-status" style="display:none;"></div>
+          <div class="table-wrapper workspace-table-wrap">
+            <table id="inventoryTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Sport</th>
+                  <th>SKU</th>
+                  <th>Name</th>
+                  <th>Team</th>
+                  <th>Set</th>
+                  <th>Year</th>
+                  <th>Card #</th>
+                  <th>Quantity</th>
+                  <th>Parallel</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
-      <pre id="listingDraftOutput" class="inventory-draft-output">Select a template and enter a card ID or SKU to generate a listing draft.</pre>
-    </div>
-    <div id="inventoryStatus" class="inventory-status" style="display:none;"></div>
-    <div class="table-wrapper">
-      <table id="inventoryTable">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Sport</th>
-            <th>SKU</th>
-            <th>Name</th>
-            <th>Team</th>
-            <th>Set</th>
-            <th>Year</th>
-            <th>Card #</th>
-            <th>Quantity</th>
-            <th>Parallel</th>
-            <th>Updated</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="inventoryBody"></tbody>
-      </table>
     </div>
   </section>
 
   <section id="pricingPage" class="app-page">
-    <div class="inventory-header">
-      <h2>Pricing</h2>
-      <div class="inventory-actions">
-        <button id="refreshPricingBtn" type="button">Refresh Pricing Rows</button>
-        <button id="rescanPricingBtn" type="button">Rescan Data</button>
+    <div class="workspace-shell">
+      <div class="workspace-hero">
+        <div>
+          <div class="workspace-eyebrow">Pricing Workspace</div>
+          <h2>Comp-driven valuation with cost-aware research</h2>
+          <p>Keep manual pricing notes alongside cached sold comps so the app can support listing decisions without repeatedly spending AI or marketplace calls.</p>
+        </div>
+        <div class="workspace-hero-badges">
+          <span class="workspace-badge">Cached comps</span>
+          <span class="workspace-badge">Research first</span>
+        </div>
       </div>
-    </div>
-    <div id="pricingStatus" class="inventory-status" style="display:none;"></div>
-    <div class="table-wrapper">
-      <table id="pricingTable">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>SKU</th>
-            <th>Name</th>
-            <th>Set</th>
-            <th>Year</th>
-            <th>Qty</th>
-            <th>Purchase Price</th>
-            <th>Listing Price</th>
-            <th>Last Sale</th>
-            <th>Unit Value</th>
-            <th>Total Value</th>
-            <th>Source</th>
-            <th>Notes</th>
-            <th>Market Links</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="pricingBody"></tbody>
-      </table>
+
+      <div class="workspace-layout">
+        <aside class="workspace-sidebar">
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">Pricing Actions</div>
+            <div class="workspace-button-stack">
+              <button id="refreshPricingBtn" type="button">Refresh Pricing Rows</button>
+              <button id="rescanPricingBtn" type="button">Rescan Data</button>
+            </div>
+          </div>
+
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">Cost Guardrail</div>
+            <p class="workspace-panel-copy">The pricing tab leans on cached marketplace lookups and pasted comps before any new scan or external estimate work.</p>
+          </div>
+        </aside>
+
+        <div class="workspace-content">
+          <div id="pricingStatus" class="inventory-status workspace-status" style="display:none;"></div>
+          <div class="table-wrapper workspace-table-wrap">
+            <table id="pricingTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>SKU</th>
+                  <th>Name</th>
+                  <th>Set</th>
+                  <th>Year</th>
+                  <th>Qty</th>
+                  <th>Purchase Price</th>
+                  <th>Listing Price</th>
+                  <th>Last Sale</th>
+                  <th>Unit Value</th>
+                  <th>Total Value</th>
+                  <th>Source</th>
+                  <th>Notes</th>
+                  <th>Market Links</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="pricingBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
   <section id="listingsPage" class="app-page">
-    <div class="inventory-header">
-      <h2>Listings</h2>
-      <div class="inventory-actions">
-        <button id="refreshListingsBtn" type="button">Refresh Listings</button>
-        <button id="loadPricingToListingsBtn" type="button">Load from Pricing</button>
-        <button id="rescanListingsBtn" type="button">Rescan Data</button>
+    <div class="workspace-shell">
+      <div class="workspace-hero">
+        <div>
+          <div class="workspace-eyebrow">Listings Workspace</div>
+          <h2>Move from validated cards to polished storefront drafts</h2>
+          <p>Build listing payloads from inventory and pricing context, then keep the submission workflow constrained, reviewable, and ready for safer eBay automation.</p>
+        </div>
+        <div class="workspace-hero-badges">
+          <span class="workspace-badge">Draft before submit</span>
+          <span class="workspace-badge">Submission guardrails</span>
+        </div>
+      </div>
+
+      <div class="workspace-layout">
+        <aside class="workspace-sidebar">
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">Listings Actions</div>
+            <div class="workspace-button-stack">
+              <button id="refreshListingsBtn" type="button">Refresh Listings</button>
+              <button id="loadPricingToListingsBtn" type="button">Load from Pricing</button>
+              <button id="rescanListingsBtn" type="button">Rescan Data</button>
+            </div>
+          </div>
+
+          <div class="workspace-panel">
+            <div class="workspace-panel-title">Workflow Note</div>
+            <p class="workspace-panel-copy">Listing drafts remain the safety boundary. You can refine titles, pricing, and card bundles before any future live submit workflow.</p>
+          </div>
+        </aside>
+
+        <div class="workspace-content">
+          <div id="listingStatus" class="inventory-status workspace-status" style="display:none;"></div>
+          <div class="inventory-draft-panel workspace-card">
+            <div class="inventory-draft-title">eBay Storefront Submission</div>
+            <div class="inventory-draft-row">
+              <label>
+                <span>Template</span>
+                <select id="listingsListingTemplateSelect"></select>
+              </label>
+              <label>
+                <span>Card ID or SKU</span>
+                <input id="listingsListingCardIdInput" type="text" placeholder="Card ID, SKU, or CSV list" />
+              </label>
+              <label>
+                <span>Chase Card ID or SKU</span>
+                <input id="listingsListingChaseCardIdInput" type="text" placeholder="Optional for mystery packs" />
+              </label>
+              <button id="listingsBuildListingDraftBtn" type="button">Build Draft</button>
+              <button id="listingsSubmitListingDraftBtn" type="button" class="primary-btn">Submit</button>
+              <button id="listingsCancelListingDraftBtn" type="button" class="secondary-btn">Cancel</button>
+            </div>
+            <pre id="listingsListingDraftOutput" class="inventory-draft-output">Select a template and enter a card ID or SKU to generate a listing draft.</pre>
+          </div>
+        </div>
       </div>
     </div>
-    <div id="listingStatus" class="inventory-status" style="display:none;"></div>
-    <div class="inventory-draft-panel">
-      <div class="inventory-draft-title">eBay Storefront Submission</div>
-      <div class="inventory-draft-row">
-        <label>
-          <span>Template</span>
-          <select id="listingsListingTemplateSelect"></select>
-        </label>
-        <label>
-          <span>Card ID or SKU</span>
-          <input id="listingsListingCardIdInput" type="text" placeholder="Card ID, SKU, or CSV list" />
-        </label>
-        <label>
-          <span>Chase Card ID or SKU</span>
-          <input id="listingsListingChaseCardIdInput" type="text" placeholder="Optional for mystery packs" />
-        </label>
-        <button id="listingsBuildListingDraftBtn" type="button">Build Draft</button>
-        <button id="listingsSubmitListingDraftBtn" type="button" class="primary-btn">Submit</button>
-        <button id="listingsCancelListingDraftBtn" type="button" class="secondary-btn">Cancel</button>
+  </section>
+
+  <section id="profilePage" class="app-page active">
+    <div class="profile-shell">
+      <div class="profile-hero">
+        <div>
+          <h2>Accounts and Connections</h2>
+          <p>Create a CardPilot HQ account inside your own ecosystem, then manage marketplace and research connections from one profile.</p>
+        </div>
+        <div id="profileHeroStatus" class="profile-hero-status">Loading account tools...</div>
       </div>
-      <pre id="listingsListingDraftOutput" class="inventory-draft-output">Select a template and enter a card ID or SKU to generate a listing draft.</pre>
+
+      <div id="profileAuthPanel" class="profile-auth-simple">
+        <div class="auth-split-layout">
+          <aside class="auth-brand-panel">
+            <div class="auth-brand-kicker">CardPilot HQ</div>
+            <h3>Sign in to continue</h3>
+            <p>Access your workspace after authentication. New users can create an account in seconds.</p>
+          </aside>
+
+          <div class="profile-card auth-portal-card">
+            <h3 id="authPortalTitle">Sign in</h3>
+            <p class="profile-card-copy" id="authPortalSubtitle">Use your email and password to access CardPilot HQ.</p>
+            <div id="profileAuthStatus" class="profile-auth-status">Enter your credentials to continue.</div>
+
+            <div id="authLoginPortal" class="auth-portal active">
+              <label class="profile-field">
+                <span>Email</span>
+                <input id="loginEmailInput" type="email" placeholder="you@example.com" />
+              </label>
+              <label class="profile-field">
+                <span>Password</span>
+                <input id="loginPasswordInput" type="password" placeholder="Password" />
+              </label>
+              <label class="profile-remember-row">
+                <input id="rememberMeCheckbox" type="checkbox" />
+                <span>Remember me for 30 days</span>
+              </label>
+              <button id="loginSubmitBtn" type="button">Sign In</button>
+              <button id="googleLoginBtn" type="button" class="secondary-btn">Sign In with Google</button>
+              <div class="auth-inline-links">
+                <a id="showForgotPasswordLink" href="#">Forgot password?</a>
+                <a id="showSignupLink" href="#">Sign up</a>
+              </div>
+            </div>
+
+            <div id="authSignupPortal" class="auth-portal">
+              <label class="profile-field">
+                <span>Display Name</span>
+                <input id="signupDisplayNameInput" type="text" placeholder="Jane Collector" />
+              </label>
+              <label class="profile-field">
+                <span>Email</span>
+                <input id="signupEmailInput" type="email" placeholder="you@example.com" />
+              </label>
+              <label class="profile-field">
+                <span>Password</span>
+                <input id="signupPasswordInput" type="password" placeholder="At least 8 characters" />
+              </label>
+              <label class="profile-remember-row">
+                <input id="rememberMeSignupCheckbox" type="checkbox" />
+                <span>Remember me for 30 days</span>
+              </label>
+              <button id="signupSubmitBtn" type="button" class="primary-btn">Create Account</button>
+              <div class="auth-inline-links auth-inline-links-single">
+                <a id="backToLoginFromSignupLink" href="#">Back to sign in</a>
+              </div>
+            </div>
+
+            <div id="authResetPortal" class="auth-portal">
+              <label class="profile-field">
+                <span>Account Email</span>
+                <input id="recoveryEmailInput" type="email" placeholder="you@example.com" />
+              </label>
+              <label class="profile-field">
+                <span>Display Name</span>
+                <input id="recoveryDisplayNameInput" type="text" placeholder="Display name on the account" />
+              </label>
+              <label class="profile-field">
+                <span>New Password</span>
+                <input id="recoveryNewPasswordInput" type="password" placeholder="At least 8 characters" />
+              </label>
+              <button id="resetPasswordBtn" type="button" class="secondary-btn">Reset Password</button>
+              <div class="auth-inline-links auth-inline-links-single">
+                <a id="backToLoginFromResetLink" href="#">Back to sign in</a>
+              </div>
+            </div>
+
+            <input id="recoveryIdentifierInput" type="text" hidden />
+            <button id="findAccountBtn" type="button" class="secondary-btn" style="display:none;">Find My Account</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="profileWorkspace" class="profile-grid" style="display:none;">
+        <div class="profile-card">
+          <div class="profile-card-header">
+            <h3>Your Profile</h3>
+            <button id="logoutBtn" type="button" class="secondary-btn">Log Out</button>
+          </div>
+          <div class="profile-actions-row">
+            <button id="googleLinkBtn" type="button" class="secondary-btn">Link Google Account</button>
+          </div>
+          <div id="profileAccountSummary" class="profile-summary"></div>
+          <label class="profile-field">
+            <span>Display Name</span>
+            <input id="profileDisplayNameInput" type="text" placeholder="Your display name" />
+          </label>
+          <button id="saveProfileBtn" type="button">Save Profile</button>
+        </div>
+
+        <div class="profile-card profile-connections-card">
+          <div class="profile-card-header">
+            <div>
+              <h3>Connections</h3>
+              <p class="profile-card-copy">Track which systems are connected for research, listings, or future OAuth/API work.</p>
+            </div>
+          </div>
+
+          <div class="profile-connection-form">
+            <label class="profile-field">
+              <span>Provider</span>
+              <select id="profileConnectionProviderSelect"></select>
+            </label>
+            <label id="profileCustomProviderRow" class="profile-field" style="display:none;">
+              <span>Custom Provider Name</span>
+              <input id="profileCustomProviderInput" type="text" placeholder="COMC, Whatnot, MySlabs, etc." />
+            </label>
+            <label class="profile-field">
+              <span>Capability</span>
+              <select id="profileConnectionCapabilitySelect">
+                <option value="research">Research</option>
+                <option value="listings">Listings</option>
+                <option value="research+listings">Research + Listings</option>
+              </select>
+            </label>
+            <label class="profile-field">
+              <span>Status</span>
+              <select id="profileConnectionStatusSelect">
+                <option value="planned">Planned</option>
+                <option value="connected">Connected</option>
+                <option value="research-only">Research Only</option>
+                <option value="listing-only">Listing Only</option>
+                <option value="paused">Paused</option>
+              </select>
+            </label>
+            <label class="profile-field">
+              <span>Auth Pattern</span>
+              <select id="profileConnectionAuthTypeSelect"></select>
+            </label>
+            <label class="profile-field">
+              <span>Account Label</span>
+              <input id="profileConnectionAccountLabelInput" type="text" placeholder="Collector store, personal account, sandbox app..." />
+            </label>
+            <label class="profile-field profile-field-wide">
+              <span>Notes</span>
+              <textarea id="profileConnectionNotesInput" rows="4" placeholder="What data you want from this provider, auth constraints, listing goals, or next integration steps."></textarea>
+            </label>
+            <div class="profile-actions-row">
+              <button id="saveConnectionBtn" type="button" class="primary-btn">Save Connection</button>
+              <button id="resetConnectionFormBtn" type="button" class="secondary-btn">Reset Form</button>
+            </div>
+          </div>
+
+          <div id="profileConnectionsList" class="profile-connections-list"></div>
+        </div>
+      </div>
     </div>
   </section>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="app.js?v=20260627j"></script>
+  <script src="../Frontend/app.js?v=20260823a"></script>
   <script src="column-manager.js?v=20260627j"></script>
-  <script src="server-control.js?v=20260627j"></script>
+  <script src="server-control.js?v=20260823a"></script>
 </body>
 </html>
