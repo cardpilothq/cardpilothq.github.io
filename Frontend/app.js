@@ -1,6 +1,6 @@
 let BACKEND_URL = null;
 const BACKEND_PORTS = [3000, 3001, 3002];
-const FRONTEND_BUILD = '20260823b';
+const FRONTEND_BUILD = '20260823c';
 const ALLOWED_CARD_YEARS = ['2025', '2026', '2025-2026'];
 const SKU_COMMITTED_COUNTER_KEY = 'cardAutoCommittedSkuCounter';
 const ACTIVE_SPORT_KEY = 'cardAutoActiveSport';
@@ -76,12 +76,31 @@ const NFL_TEAM_OPTIONS = [
 
 console.log(`[Card Automation UI] build=${FRONTEND_BUILD}`);
 
+function resolveHostedSiteEnvironmentLabel() {
+  if (typeof window === 'undefined') return ''
+  const host = String(window.location?.hostname || '').toLowerCase()
+  const path = String(window.location?.pathname || '').toLowerCase()
+  const locationToken = `${host}${path}`
+  if (locationToken.includes('cardpilothq-prod')) return 'PROD'
+  if (locationToken.includes('cardpilothq-test')) return 'TEST'
+  return ''
+}
+
 async function initializeAppBadge() {
+  const badge = document.getElementById('envBadge')
+  if (!badge) return
+
+  const hostedLabel = resolveHostedSiteEnvironmentLabel()
+  if (hostedLabel) {
+    badge.textContent = `[${hostedLabel}]`
+    badge.style.color = hostedLabel === 'PROD' ? '#00aa00' : '#ff8800'
+    return
+  }
+
   try {
     const backendUrl = await getBackendUrl()
     const res = await fetch(`${backendUrl}/config`)
     const data = await res.json()
-    const badge = document.getElementById('envBadge')
     if (badge && data?.app?.environment) {
       const env = String(data.app.environment || '').toLowerCase()
       const isTestLike = env === 'test' || env === 'qa'
